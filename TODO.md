@@ -26,6 +26,14 @@
 - Audio editing (trimming, effects, normalization).
 - Managing multiple graphs as a library.
 
+## Implementation Notes
+
+- Single file: `index.html` (vanilla HTML/JS/CSS, no build, no deps). Self test: open with `?selftest=1`.
+- Save format: one JSON file (`markov-sound-graph-*.json`). Audio is embedded as base64 data URLs inside the JSON — zip-with-renamed-extension was rejected as it needs a zip writer.
+- Editing: double-click empty canvas = node, Shift+drag node→node = edge (drop on itself = self-loop), drag = move, click edge = weight panel, Del = delete, audio file can be dropped straight onto a node.
+- Walkers: reach a node → play its clip → only then draw the next edge by weight. Independent epochs so stop/edit never leaves a walker mid-flight.
+- Autosave: IndexedDB (graph + audio). Export/import is the portable path.
+
 ## Feedback
 
 - [ ] (no feedback yet)

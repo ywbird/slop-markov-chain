@@ -111,7 +111,6 @@
 const uid = (p) => p + '_' + Math.random().toString(36).slice(2, 9);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const round1 = (v) => Math.round(v * 10) / 10;
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R = 27;                      // node radius (css px)
 const COLORS = ['#ffd166','#7aa7ff','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#ff9f6b','#8b9dff','#f2a0ff'];
@@ -162,8 +161,15 @@ function edgeProbability(e) {
   return t > 0 ? e.weight / t : 0;
 }
 
+function nextNodeName() {
+  const used = new Set(state.nodes.map(n => n.label));
+  let i = state.nodes.length + 1;
+  while (used.has('N' + i)) i++;
+  return 'N' + i;
+}
+
 function addNodeAt(x, y, label) {
-  const n = { id: uid('n'), x, y, label: label || ('N' + (state.nodes.length + 1)), audio: null };
+  const n = { id: uid('n'), x, y, label: label || nextNodeName(), audio: null };
   state.nodes.push(n);
   return n;
 }
@@ -1081,10 +1087,9 @@ function bindUI() {
   });
 
   els.btnAddNode.addEventListener('click', () => {
-    const used = state.nodes;
     const x = clamp(cw / 2 + (Math.random() - 0.5) * cw * 0.4, 60, Math.max(60, cw - 60));
     const y = clamp(ch / 2 + (Math.random() - 0.5) * ch * 0.4, 60, Math.max(60, ch - 60));
-    const n = addNodeAt(x, y, 'N' + (used.length + 1));
+    const n = addNodeAt(x, y);
     setSelection({ type: 'node', id: n.id });
     scheduleSave();
   });
