@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Markov Sound Graph</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#111721; --line:#222b36; --line2:#2c3746;
+    --text:#d8e0ea; --muted:#7c8a9c; --accent:#66d9c4; --danger:#ff7b72;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);color:var(--text);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  header{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);
+  }
+  header h1{font-size:14px;font-weight:600;letter-spacing:.02em;margin:0 8px 0 0;color:#eaf2fb}
+  header .sep{width:1px;height:20px;background:var(--line2)}
+  header label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+  header .hint{margin-left:auto;color:var(--muted);font-size:12px}
+  button{
+    font:inherit;font-size:13px;color:var(--text);background:#1a222c;border:1px solid var(--line2);
+    border-radius:6px;padding:5px 10px;cursor:pointer;
+  }
+  button:hover{background:#212b37;border-color:#3a4859}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#06211c;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button.primary.running{background:var(--danger);border-color:var(--danger);color:#2a0b08}
+  button.danger{color:var(--danger);border-color:#3a2a2a;background:#1d1616}
+  button.danger:hover{background:#2a1c1c}
+  input,select{
+    font:inherit;font-size:13px;color:var(--text);background:#0d1218;border:1px solid var(--line2);
+    border-radius:6px;padding:4px 7px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  input[type=number]{width:64px}
+  input[type=range]{width:100%;accent-color:var(--accent);padding:0;background:none;border:none}
+  main{flex:1;display:flex;min-height:0}
+  canvas{flex:1;display:block;min-width:0;touch-action:none;cursor:default}
+  aside{
+    width:288px;flex:0 0 288px;border-left:1px solid var(--line);background:var(--panel);
+    padding:14px;overflow-y:auto;
+  }
+  aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+  aside h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px}
+  aside .field{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  aside .field > span{color:var(--muted);font-size:12px;min-width:48px}
+  aside .field input[type=text]{flex:1;min-width:0}
+  aside .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  aside .muted{color:var(--muted);font-size:12px}
+  aside ul{padding-left:16px;margin:8px 0;color:var(--muted);font-size:12px}
+  aside li{margin:3px 0}
+  .sound{color:#b7c6d8;font-size:12px;word-break:break-all;margin:0 0 10px}
+  .sound.none{color:var(--muted)}
+  .row{
+    display:flex;justify-content:space-between;gap:8px;align-items:center;
+    padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin:0 0 6px;cursor:pointer;
+    background:#0f151d;font-size:12px;
+  }
+  .row:hover{border-color:#3a4859;background:#141c26}
+  .row .p{color:var(--muted);font-variant-numeric:tabular-nums}
+  .stat{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;margin:6px 0 10px}
+  #toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);
+    background:#1b2430;border:1px solid var(--line2);color:var(--text);
+    padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;
+    transition:opacity .18s,transform .18s;max-width:70vw;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #selftest{
+    position:fixed;inset:0;margin:0;padding:16px;overflow:auto;background:#0b0f14;color:#cfe3d8;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;z-index:99;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Markov Sound Graph</h1>
+  <div class="sep"></div>
+  <label>워커 <input id="walkerCount" type="number" min="1" max="9" value="3"></label>
+  <label>시작 <select id="startMode">
+    <option value="random">랜덤 노드</option>
+    <option value="selected">선택한 노드</option>
+  </select></label>
+  <button id="btnRun" class="primary">시작</button>
+  <div class="sep"></div>
+  <button id="btnAddNode">노드 추가</button>
+  <button id="btnExport">파일로 저장</button>
+  <button id="btnImport">불러오기</button>
+  <span class="hint">Shift+드래그: 연결 · 더블클릭: 노드 · Del: 삭제 · Space: 시작/정지</span>
+</header>
+<main>
+  <canvas id="cv"></canvas>
+  <aside id="panel"></aside>
+</main>
+<input id="soundFile" type="file" accept="audio/*" hidden>
+<input id="importFile" type="file" accept=".json,application/json" hidden>
+<div id="toast"></div>
+<script>
+'use strict';
+(function(){
+
+// ---------------------------------------------------------------- utils
+const uid = (p) => p + '_' + Math.random().toString(36).slice(2, 9);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const round1 = (v) => Math.round(v * 10) / 10;
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const R = 27;                      // node radius (css px)
+const COLORS = ['#66d9c4','#7aa7ff','#ffb86b','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#f2d04b','#ff9f6b'];
+const SAVE_VERSION = 1;
+const SELF_TEST = /(?:^|[?&])selftest=1(?:&|$)/.test(location.search);
+
+// ---------------------------------------------------------------- state
+const state = {
+  nodes: [],        // {id, x, y, label, audio:{name,mime,data}|null}
+  edges: [],        // {id, from, to, weight}
+  walkerCount: 3,
+  startMode: 'random',   // 'random' | 'selected'
+  startNodeId: null,     // used when startMode === 'selected'
+  selection: null,       // {type:'node'|'edge', id}
+  walkers: [],           // runtime
+  running: false,
+  epoch: 0,
+};
+
+const els = {};
+let cw = 1, ch = 1, dpr = 1;
+let drag = null;      // {kind:'node', id, ox, oy}
+let linking = null;   // {from, x, y}
+
+// ---------------------------------------------------------------- model
+const nodeById = (id) => state.nodes.find(n => n.id === id) || null;
+const edgeById = (id) => state.edges.find(e => e.id === id) || null;
+
+function nextEdgeFrom(edges, fromId, rng = Math.random) {
+  const outs = edges.filter(e => e.from === fromId && e.weight > 0);
+  if (!outs.length) return null;
+  let total = 0;
+  for (const e of outs) total += e.weight;
+  let r = rng() * total;
+  for (const e of outs) { r -= e.weight; if (r < 0) return e; }
+  return outs[outs.length - 1];
+}
+function pickNext(fromId, rng = Math.random) {
+  const e = nextEdgeFrom(state.edges, fromId, rng);
+  return e ? nodeById(e.to) : null;
+}
+function outWeight(fromId) {
+  return state.edges.reduce((s, e) => s + (e.from === fromId ? e.weight : 0), 0);
+}
+function edgeProbability(e) {
+  const t = outWeight(e.from);
+  return t > 0 ? e.weight / t : 0;
+}
+
+function addNodeAt(x, y, label) {
+  const n = { id: uid('n'), x, y, label: label || ('N' + (state.nodes.length + 1)), audio: null };
+  state.nodes.push(n);
+  return n;
+}
+function addEdge(from, to) {
+  const existing = state.edges.find(e => e.from === from && e.to === to);
+  if (existing) { existing.weight = round1(existing.weight + 1); return existing; }
+  const e = { id: uid('e'), from, to, weight: 1 };
+  state.edges.push(e);
+  return e;
+}
+function deleteNode(id) {
+  stopWalkers();
+  state.nodes = state.nodes.filter(n => n.id !== id);
+  state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+  if (state.startNodeId === id) state.startNodeId = null;
+  state.selection = null;
+  scheduleSave();
+  rebuildPanel();
+}
+function deleteEdge(id) {
+  state.edges = state.edges.filter(e => e.id !== id);
+  state.selection = null;
+  scheduleSave();
+  rebuildPanel();
+}
+function deleteSelection() {
+  const s = state.selection;
+  if (!s) return;
+  if (s.type === 'node') deleteNode(s.id); else deleteEdge(s.id);
+}
+
+// ---------------------------------------------------------------- serialize
+function serializeGraph(g = state) {
+  return JSON.stringify({
+    app: 'markov-sound-graph',
+    version: SAVE_VERSION,
+    savedAt: new Date().toISOString(),
+    walkerCount: g.walkerCount,
+    startMode: g.startMode,
+    startNodeId: g.startNodeId,
+    nodes: g.nodes.map(n => ({
+      id: n.id, x: round1(n.x), y: round1(n.y), label: n.label,
+      audio: n.audio ? { name: n.audio.name, mime: n.audio.mime, data: n.audio.data } : null,
+    })),
+    edges: g.edges.map(e => ({ id: e.id, from: e.from, to: e.to, weight: e.weight })),
+  });
+}
+
+function deserializeGraph(text) {
+  const d = JSON.parse(text);
+  if (!d || typeof d !== 'object' || !Array.isArray(d.nodes) || !Array.isArray(d.edges)) {
+    throw new Error('그래프 파일 형식이 아닙니다');
+  }
+  const ids = new Set();
+  const nodes = d.nodes.map(n => {
+    const id = String(n && n.id != null ? n.id : uid('n'));
+    if (ids.has(id)) throw new Error('노드 id가 중복됩니다: ' + id);
+    ids.add(id);
+    const a = n && n.audio;
+    return {
+      id,
+      x: Number(n && n.x) || 0,
+      y: Number(n && n.y) || 0,
+      label: String((n && n.label) != null ? n.label : id),
+      audio: a && a.data ? { name: String(a.name || 'sound'), mime: String(a.mime || ''), data: String(a.data) } : null,
+    };
+  });
+  const edges = [];
+  for (const e of d.edges) {
+    if (!e) continue;
+    const from = String(e.from), to = String(e.to);
+    if (!ids.has(from) || !ids.has(to)) continue;   // dangling edge: drop
+    edges.push({
+      id: String(e.id != null ? e.id : uid('e')), from, to,
+      weight: Math.max(0, Number(e.weight) || 0),
+    });
+  }
+  return {
+    nodes, edges,
+    walkerCount: clamp(Number(d.walkerCount) || 3, 1, 9),
+    startMode: d.startMode === 'selected' ? 'selected' : 'random',
+    startNodeId: nodes.some(n => n.id === d.startNodeId) ? d.startNodeId : null,
+  };
+}
+
+function applyGraph(g) {
+  stopWalkers();
+  state.nodes = g.nodes;
+  state.edges = g.edges;
+  state.walkerCount = clamp(g.walkerCount || state.walkerCount, 1, 9);
+  state.startMode = g.startMode || state.startMode;
+  state.startNodeId = g.startNodeId || null;
+  state.selection = null;
+  state.walkers = [];
+  els.walkerCount.value = String(state.walkerCount);
+  els.startMode.value = state.startMode;
+  rebuildPanel();
+  syncControls();
+}
+
+// ---------------------------------------------------------------- storage
+const idb = {
+  _p: null,
+  name: 'markov-sound-graph',
+  store: 'kv',
+  open() {
+    if (this._p) return this._p;
+    this._p = new Promise((res, rej) => {
+      const rq = indexedDB.open(this.name, 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore(this.store);
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error || new Error('IndexedDB 열기 실패'));
+    });
+    return this._p;
+  },
+  async get(k) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const rq = db.transaction(this.store, 'readonly').objectStore(this.store).get(k);
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+  },
+  async set(k, v) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(this.store, 'readwrite');
+      tx.objectStore(this.store).put(v, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  },
+};
+
+let saveTimer = null;
+let saveFailed = false;
+function scheduleSave() {
+  if (SELF_TEST) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 400);
+}
+async function saveNow() {
+  try {
+    await idb.set('graph', serializeGraph());
+    saveFailed = false;
+  } catch (e) {
+    console.warn('autosave failed', e);
+    if (!saveFailed) { saveFailed = true; toast('브라우저 저장 실패 — 파일로 저장을 사용하세요'); }
+  }
+}
+
+// ---------------------------------------------------------------- audio
+function b64ToBuffer(dataUrl) {
+  const i = dataUrl.indexOf('base64,');
+  const b64 = i >= 0 ? dataUrl.slice(i + 7) : dataUrl;
+  const bin = atob(b64);
+  const u = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+  return u.buffer;
+}
+
+const audio = {
+  ctx: null,
+  master: null,
+  cache: new Map(),     // dataUrl -> AudioBuffer
+  waiting: new Set(),   // started BufferSources
+  ensure() {
+    if (this.ctx) return this.ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.9;
+    this.master.connect(this.ctx.destination);
+    return this.ctx;
+  },
+  async resume() {
+    const c = this.ensure();
+    if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
+    return c;
+  },
+  async buffer(node) {
+    if (!node.audio) return null;
+    const key = node.audio.data;
+    if (this.cache.has(key)) return this.cache.get(key);
+    this.ensure();
+    const buf = await this.ctx.decodeAudioData(b64ToBuffer(key));
+    if (this.cache.size >= 64) this.cache.clear();
+    this.cache.set(key, buf);
+    return buf;
+  },
+  play(buf) {
+    const c = this.ensure();
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.master);
+    this.waiting.add(src);
+    const p = new Promise(res => {
+      src.onended = () => { this.waiting.delete(src); res(); };
+    });
+    src.start();
+    return p;
+  },
+  stopAll() {
+    for (const src of Array.from(this.waiting)) {
+      try { src.stop(); } catch (e) {}
+      this.waiting.delete(src);
+    }
+  },
+};
+
+// ---------------------------------------------------------------- walkers
+function abortableSleep(ms, epoch) {
+  return new Promise(res => {
+    const t = setTimeout(done, ms);
+    const iv = setInterval(() => { if (epoch !== state.epoch) done(); }, 50);
+    function done() { clearTimeout(t); clearInterval(iv); res(); }
+  });
+}
+
+async function playNodeSound(w, node) {
+  const epoch = w.epoch;
+  let buf = null;
+  try {
+    buf = await audio.buffer(node);
+  } catch (e) {
+    console.warn('decode failed', e);
+    toast('소리를 재생할 수 없습니다: ' + (node.audio ? node.audio.name : node.label));
+    buf = null;
+  }
+  if (epoch !== state.epoch || !state.running) return;
+  if (!buf) { await abortableSleep(320, epoch); return; }
+  try { await audio.resume(); } catch (e) {}
+  if (epoch !== state.epoch || !state.running) return;
+  w.playingAt = node.id;
+  await audio.play(buf);
+  w.playingAt = null;
+}
+
+function animateWalker(w, from, to) {
+  return new Promise(res => {
+    w.anim = { from, to, t0: performance.now(), dur: 180 };
+    setTimeout(() => { w.anim = null; res(); }, w.anim.dur + 10);
+  });
+}
+
+async function runWalker(w) {
+  while (state.running && w.epoch === state.epoch) {
+    const cur = nodeById(w.nodeId);
+    if (!cur) { w.dead = true; checkAllDead(); break; }
+    await playNodeSound(w, cur);
+    if (!(state.running && w.epoch === state.epoch)) break;
+    const next = pickNext(cur.id);
+    if (!next) { w.dead = true; checkAllDead(); break; }
+    await animateWalker(w, cur, next);
+    if (!(state.running && w.epoch === state.epoch)) break;
+    w.nodeId = next.id;
+  }
+}
+
+function pickStartNode() {
+  if (state.startMode === 'selected') {
+    return state.startNodeId ? nodeById(state.startNodeId) : null;
+  }
+  if (!state.nodes.length) return null;
+  return state.nodes[Math.floor(Math.random() * state.nodes.length)];
+}
+
+function startWalkers() {
+  if (state.running) return;
+  if (!state.nodes.length) { toast('먼저 노드를 만드세요'); return; }
+  const first = pickStartNode();
+  if (!first) { toast('시작 노드를 선택하거나 "랜덤 노드"로 바꾸세요'); return; }
+  state.running = true;
+  state.epoch++;
+  state.walkers = [];
+  // warm the decode cache so later steps are tight
+  let withAudio = 0;
+  for (const n of state.nodes) {
+    if (!n.audio) continue;
+    withAudio++;
+    audio.buffer(n).catch(() => {});
+  }
+  if (!withAudio) toast('소리가 지정된 노드가 없습니다 — 노드를 클릭해 소리 파일을 넣으세요');
+  for (let i = 0; i < state.walkerCount; i++) {
+    const start = state.startMode === 'selected' ? first : pickStartNode();
+    if (!start) break;
+    const w = { i, color: COLORS[i % COLORS.length], nodeId: start.id, anim: null, dead: false, epoch: state.epoch, playingAt: null };
+    state.walkers.push(w);
+    runWalker(w);
+  }
+  syncControls();
+}
+
+function checkAllDead() {
+  if (!state.running) return;
+  if (state.walkers.every(w => w.dead)) {
+    stopWalkers();
+    toast('워커가 막다른 노드에 도달했습니다 — 나가는 연결을 추가하세요');
+  }
+}
+
+function stopWalkers() {
+  if (!state.running && !state.walkers.length) return;
+  state.running = false;
+  state.epoch++;
+  audio.stopAll();
+  state.walkers = [];
+  syncControls();
+}
+
+// ---------------------------------------------------------------- geometry
+function edgeGeom(e) {
+  const a = nodeById(e.from), b = nodeById(e.to);
+  if (!a || !b) return null;
+  if (a.id === b.id) {
+    const r = 22, cx = a.x, cy = a.y - R - r - 7;
+    return { loop: true, cx, cy, r, start: 0.62 * Math.PI, end: 2.38 * Math.PI, lx: cx, ly: cy - r - 13 };
+  }
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+  const rev = state.edges.some(o => o.from === e.to && o.to === e.from && o.id !== e.id);
+  const off = rev ? 9 : 0;
+  const sx = a.x + ux * R + nx * off, sy = a.y + uy * R + ny * off;
+  const ex = b.x - ux * (R + 9) + nx * off, ey = b.y - uy * (R + 9) + ny * off;
+  const mx = (sx + ex) / 2 + nx * 13, my = (sy + ey) / 2 + ny * 13;
+  return { loop: false, sx, sy, ex, ey, angle: Math.atan2(ey - sy, ex - sx), lx: mx, ly: my };
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+  t = clamp(t, 0, 1);
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function hitNode(p) {
+  let best = null, bestD = R + 2;
+  for (const n of state.nodes) {
+    const d = Math.hypot(p.x - n.x, p.y - n.y);
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  return best;
+}
+
+function hitEdge(p) {
+  let best = null, bestD = 10;
+  for (const e of state.edges) {
+    const g = edgeGeom(e);
+    if (!g) continue;
+    if (g.loop) {
+      const d = Math.abs(Math.hypot(p.x - g.cx, p.y - g.cy) - g.r);
+      if (d < bestD) { bestD = d; best = e; }
+    } else {
+      const d = distToSegment(p.x, p.y, g.sx, g.sy, g.ex, g.ey);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------- render
+function resize() {
+  const rect = els.cv.getBoundingClientRect();
+  dpr = window.devicePixelRatio || 1;
+  cw = Math.max(1, rect.width);
+  ch = Math.max(1, rect.height);
+  els.cv.width = Math.round(cw * dpr);
+  els.cv.height = Math.round(ch * dpr);
+}
+
+const short = (s, n = 9) => {
+  s = String(s);
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+};
+
+function draw(now) {
+  const ctx = els.cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0e1116';
+  ctx.fillRect(0, 0, cw, ch);
+
+  // dot grid
+  ctx.fillStyle = '#161d26';
+  for (let x = 16; x < cw; x += 32) {
+    for (let y = 16; y < ch; y += 32) ctx.fillRect(x, y, 1, 1);
+  }
+
+  const sel = state.selection;
+
+  // edges
+  for (const e of state.edges) {
+    const g = edgeGeom(e);
+    if (!g) continue;
+    const isSel = sel && sel.type === 'edge' && sel.id === e.id;
+    ctx.strokeStyle = isSel ? '#66d9c4' : '#31404f';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = isSel ? 2.4 : 1.6;
+
+    ctx.beginPath();
+    if (g.loop) {
+      ctx.arc(g.cx, g.cy, g.r, g.start, g.end);
+    } else {
+      ctx.moveTo(g.sx, g.sy);
+      ctx.lineTo(g.ex, g.ey);
+    }
+    ctx.stroke();
+
+    // arrow head
+    let ax, ay, ang;
+    if (g.loop) {
+      ax = g.cx + Math.cos(g.end) * g.r;
+      ay = g.cy + Math.sin(g.end) * g.r;
+      ang = g.end + Math.PI / 2;
+    } else {
+      ax = g.ex; ay = g.ey; ang = g.angle;
+    }
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 9 * Math.cos(ang - 0.42), ay - 9 * Math.sin(ang - 0.42));
+    ctx.lineTo(ax - 9 * Math.cos(ang + 0.42), ay - 9 * Math.sin(ang + 0.42));
+    ctx.closePath();
+    ctx.fill();
+
+    // probability label
+    const label = Math.round(edgeProbability(e) * 100) + '%';
+    ctx.font = '11px ui-monospace,SFMono-Regular,Menlo,monospace';
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = '#0e1116';
+    ctx.fillRect(g.lx - tw / 2 - 4, g.ly - 8, tw + 8, 15);
+    ctx.fillStyle = isSel ? '#9ff0e1' : '#7c8a9c';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, g.lx, g.ly);
+  }
+
+  // link preview
+  if (linking) {
+    const a = nodeById(linking.from);
+    if (a) {
+      ctx.strokeStyle = 'rgba(102,217,196,.65)';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(linking.x, linking.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // playing highlights
+  if (state.running) {
+    for (const w of state.walkers) {
+      if (!w.playingAt) continue;
+      const n = nodeById(w.playingAt);
+      if (!n) continue;
+      const pulse = 1 + 0.06 * Math.sin(now / 130);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, (R + 7) * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = w.color;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // nodes
+  for (const n of state.nodes) {
+    const isSel = sel && sel.type === 'node' && sel.id === n.id;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, R, 0, Math.PI * 2);
+    ctx.fillStyle = n.audio ? '#1b2530' : '#151b23';
+    ctx.fill();
+    ctx.lineWidth = isSel ? 3 : 1.5;
+    ctx.strokeStyle = isSel ? '#66d9c4' : '#2c3746';
+    ctx.stroke();
+
+    ctx.fillStyle = '#d8e0ea';
+    ctx.font = '13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(short(n.label, 8), n.x, n.y);
+
+    if (n.audio) {
+      ctx.beginPath();
+      ctx.arc(n.x + R * 0.72, n.y - R * 0.72, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#101820';
+      ctx.fill();
+      ctx.strokeStyle = '#3a4a5c';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#8fdccd';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('♪', n.x + R * 0.72, n.y - R * 0.7);
+    }
+  }
+
+  // start-node marker
+  if (state.startMode === 'selected' && state.startNodeId) {
+    const sn = nodeById(state.startNodeId);
+    if (sn) {
+      ctx.beginPath();
+      ctx.arc(sn.x, sn.y, R + 5, 0, Math.PI * 2);
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = '#66d9c4';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // walker tokens
+  const byNode = new Map();
+  for (const w of state.walkers) {
+    if (w.anim) continue;
+    if (!byNode.has(w.nodeId)) byNode.set(w.nodeId, []);
+    byNode.get(w.nodeId).push(w);
+  }
+  for (const [nid, list] of byNode) {
+    const n = nodeById(nid);
+    if (!n) continue;
+    list.forEach((w, k) => {
+      const ang = -Math.PI / 2 + (k / Math.max(list.length, 1)) * Math.PI * 2;
+      drawToken(ctx, n.x + Math.cos(ang) * (R + 13), n.y + Math.sin(ang) * (R + 13), w);
+    });
+  }
+  for (const w of state.walkers) {
+    if (!w.anim) continue;
+    const a = nodeById(w.anim.from.id), b = nodeById(w.anim.to.id);
+    if (!a || !b) continue;
+    const p = clamp((now - w.anim.t0) / w.anim.dur, 0, 1);
+    const t = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    drawToken(ctx, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, w);
+  }
+}
+
+function drawToken(ctx, x, y, w) {
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fillStyle = w.color;
+  ctx.fill();
+  ctx.fillStyle = '#0b1014';
+  ctx.font = 'bold 10px ui-monospace,Menlo,monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(w.i + 1), x, y + 0.5);
+}
+
+function frame(now) {
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+// ---------------------------------------------------------------- panel
+function setSelection(sel) {
+  state.selection = sel;
+  rebuildPanel();
+}
+
+function rebuildPanel() {
+  const p = els.panel;
+  if (!p) return;
+  const s = state.selection;
+  if (!s) { p.innerHTML = defaultPanelHtml(); return; }
+  if (s.type === 'node') {
+    const n = nodeById(s.id);
+    if (!n) { state.selection = null; rebuildPanel(); return; }
+    p.innerHTML = nodePanelHtml(n);
+    bindNodePanel(n);
+  } else {
+    const e = edgeById(s.id);
+    if (!e) { state.selection = null; rebuildPanel(); return; }
+    p.innerHTML = edgePanelHtml(e);
+    bindEdgePanel(e);
+  }
+}
+
+function defaultPanelHtml() {
+  return `
+    <h2>사용법</h2>
+    <ul>
+      <li>더블클릭 — 노드 추가</li>
+      <li>Shift+드래그 — 노드에서 노드로 연결</li>
+      <li>드래그 — 노드 이동</li>
+      <li>연결 클릭 — 가중치(확률) 조절</li>
+      <li>Del — 선택 삭제</li>
+    </ul>
+    <h3>동작 방식</h3>
+    <p class="muted">워커는 노드에 도착해 그 노드의 소리를 재생하고, 소리가 끝나면 가중치에 따라 다음 노드로 이동합니다. 여러 워커가 동시에 소리를 겹쳐 냅니다.</p>
+    <h3>저장</h3>
+    <p class="muted">편집 내용과 소리는 브라우저(IndexedDB)에 자동 저장됩니다. 다른 컴퓨터로 옮길 때는 "파일로 저장"으로 JSON 하나를 내보내세요.</p>
+  `;
+}
+function nodePanelHtml(n) {
+  const outs = state.edges.filter(e => e.from === n.id);
+  const total = outWeight(n.id);
+  const rows = outs.length
+    ? outs.map(e => {
+        const to = nodeById(e.to);
+        const pct = Math.round(edgeProbability(e) * 100);
+        return `<div class="row" data-edge="${esc(e.id)}"><span>${e.to === n.id ? '↻ 자기 자신' : '→ ' + esc(short(to ? to.label : e.to, 12))}</span><span class="p">${e.weight % 1 ? e.weight.toFixed(1) : e.weight} · ${pct}%</span></div>`;
+      }).join('')
+    : '<p class="muted">나가는 연결이 없습니다. Shift+드래그로 연결하세요.</p>';
+  return `
+    <h2>노드</h2>
+    <div class="field"><span>이름</span><input id="pnLabel" type="text" value="${esc(n.label)}"></div>
+    <div class="btnrow">
+      <button id="pnPick">소리 파일 선택</button>
+      <button id="pnPreview" ${n.audio ? '' : 'disabled'}>미리 듣기</button>
+    </div>
+    <div class="sound ${n.audio ? '' : 'none'}">${n.audio ? '♪ ' + esc(n.audio.name) : '소리 없음 — 0.3초 뒤 다음 노드로'}</div>
+    ${n.audio ? '<div class="btnrow"><button id="pnClear">소리 제거</button></div>' : ''}
+    <div class="btnrow"><button id="pnStart">${state.startNodeId === n.id && state.startMode === 'selected' ? '✓ 시작 노드' : '이 노드에서 시작'}</button></div>
+    <h3>나가는 연결 (합계 ${total % 1 ? total.toFixed(1) : total})</h3>
+    ${rows}
+    <h3>삭제</h3>
+    <div class="btnrow"><button id="pnDelete" class="danger">노드 삭제</button></div>
+  `;
+}
+
+function bindNodePanel(n) {
+  const p = els.panel;
+  const labelInput = p.querySelector('#pnLabel');
+  labelInput.oninput = () => { n.label = labelInput.value; scheduleSave(); };
+  labelInput.onchange = () => { rebuildPanel(); };
+  p.querySelector('#pnPick').onclick = () => {
+    els.soundFile.value = '';
+    els.soundFile._target = n.id;
+    els.soundFile.click();
+  };
+  const prev = p.querySelector('#pnPreview');
+  if (prev) prev.onclick = () => previewSound(n);
+  const clear = p.querySelector('#pnClear');
+  if (clear) clear.onclick = () => { n.audio = null; scheduleSave(); rebuildPanel(); };
+  p.querySelector('#pnStart').onclick = () => {
+    state.startMode = 'selected';
+    state.startNodeId = n.id;
+    els.startMode.value = 'selected';
+    scheduleSave();
+    rebuildPanel();
+    toast('시작 노드: ' + n.label);
+  };
+  p.querySelector('#pnDelete').onclick = () => deleteNode(n.id);
+  p.querySelectorAll('[data-edge]').forEach(row => {
+    row.onclick = () => setSelection({ type: 'edge', id: row.dataset.edge });
+  });
+}
+
+function edgePanelHtml(e) {
+  const a = nodeById(e.from), b = nodeById(e.to);
+  const pct = Math.round(edgeProbability(e) * 100);
+  const total = outWeight(e.from);
+  return `
+    <h2>연결</h2>
+    <div class="sound">${esc(a ? a.label : e.from)} → ${e.from === e.to ? '(자기 자신)' : esc(b ? b.label : e.to)}</div>
+    <div class="field"><span>가중치</span><input id="peW" type="number" min="0" step="0.1" value="${e.weight}"></div>
+    <input id="peRange" type="range" min="0" max="10" step="0.1" value="${clamp(e.weight, 0, 10)}">
+    <div class="stat">이 노드에서 ${pct}% · 나가는 가중치 합 ${total % 1 ? total.toFixed(1) : total}</div>
+    <h3>삭제</h3>
+    <div class="btnrow"><button id="peDelete" class="danger">연결 삭제</button></div>
+  `;
+}
+
+function bindEdgePanel(e) {
+  const p = els.panel;
+  const num = p.querySelector('#peW');
+  const range = p.querySelector('#peRange');
+  const apply = (v) => {
+    e.weight = Math.max(0, round1(Number(v) || 0));
+    num.value = String(e.weight);
+    range.value = String(clamp(e.weight, 0, 10));
+    const stat = p.querySelector('.stat');
+    if (stat) {
+      const total = outWeight(e.from);
+      stat.textContent = `이 노드에서 ${Math.round(edgeProbability(e) * 100)}% · 나가는 가중치 합 ${total % 1 ? total.toFixed(1) : total}`;
+    }
+    scheduleSave();
+  };
+  num.oninput = () => apply(num.value);
+  range.oninput = () => apply(range.value);
+  p.querySelector('#peDelete').onclick = () => deleteEdge(e.id);
+}
+
+// ---------------------------------------------------------------- sound files
+async function previewSound(n) {
+  try {
+    await audio.resume();
+    const buf = await audio.buffer(n);
+    if (buf) await audio.play(buf);
+  } catch (e) {
+    toast('소리를 재생할 수 없습니다: ' + (n.audio ? n.audio.name : ''));
+  }
+}
+
+function onSoundFile(file) {
+  const id = els.soundFile._target;
+  const n = id ? nodeById(id) : null;
+  if (!n || !file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    n.audio = { name: file.name, mime: file.type || '', data: String(reader.result) };
+    scheduleSave();
+    rebuildPanel();
+    toast('소리 지정: ' + file.name);
+  };
+  reader.onerror = () => toast('파일을 읽지 못했습니다');
+  reader.readAsDataURL(file);
+}
+
+// ---------------------------------------------------------------- io
+function exportFile() {
+  const blob = new Blob([serializeGraph()], { type: 'application/json' });
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'markov-sound-graph-' + stamp + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('그래프와 소리를 파일로 저장했습니다');
+}
+
+async function importFile(file) {
+  if (!file) return;
+  let text;
+  try {
+    text = await file.text();
+  } catch (e) {
+    toast('파일을 읽지 못했습니다');
+    return;
+  }
+  let g;
+  try {
+    g = deserializeGraph(text);
+  } catch (e) {
+    toast('불러오기 실패: ' + e.message);
+    return;
+  }
+  if (state.nodes.length && !confirm('현재 그래프를 불러온 파일로 대체합니다. 계속할까요?')) return;
+  applyGraph(g);
+  scheduleSave();
+  toast(`불러왔습니다 — 노드 ${g.nodes.length}개, 연결 ${g.edges.length}개`);
+}
+
+// ---------------------------------------------------------------- ui helpers
+let toastTimer = null;
+function toast(msg) {
+  const t = els.toast;
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function syncControls() {
+  const b = els.btnRun;
+  if (!b) return;
+  b.textContent = state.running ? '정지' : '시작';
+  b.classList.toggle('running', state.running);
+}
+
+function seedDemo() {
+  const base = { x: 190, y: 220 };
+  const n1 = addNodeAt(base.x, base.y, 'N1');
+  const n2 = addNodeAt(base.x + 240, base.y - 70, 'N2');
+  const n3 = addNodeAt(base.x + 470, base.y + 30, 'N3');
+  const n4 = addNodeAt(base.x + 250, base.y + 200, 'N4');
+  addEdge(n1.id, n2.id).weight = 2;
+  addEdge(n1.id, n3.id).weight = 1;
+  addEdge(n2.id, n3.id).weight = 3;
+  addEdge(n2.id, n1.id).weight = 1;
+  addEdge(n3.id, n4.id).weight = 2;
+  addEdge(n3.id, n2.id).weight = 1;
+  addEdge(n4.id, n1.id).weight = 3;
+  addEdge(n4.id, n4.id).weight = 1;
+}
+
+// ---------------------------------------------------------------- events
+function bindUI() {
+  els.cv.addEventListener('pointerdown', (ev) => {
+    const p = toGraph(ev);
+    const n = hitNode(p);
+    if (ev.shiftKey && n) {
+      linking = { from: n.id, x: p.x, y: p.y };
+      capture(ev);
+      return;
+    }
+    if (n) {
+      drag = { kind: 'node', id: n.id, ox: p.x - n.x, oy: p.y - n.y };
+      setSelection({ type: 'node', id: n.id });
+      capture(ev);
+      return;
+    }
+    const e = hitEdge(p);
+    if (e) { setSelection({ type: 'edge', id: e.id }); return; }
+    setSelection(null);
+  });
+
+  els.cv.addEventListener('pointermove', (ev) => {
+    const p = toGraph(ev);
+    if (linking) { linking.x = p.x; linking.y = p.y; return; }
+    if (drag) {
+      const n = nodeById(drag.id);
+      if (!n) return;
+      n.x = p.x - drag.ox;
+      n.y = p.y - drag.oy;
+      scheduleSave();
+    }
+  });
+
+  els.cv.addEventListener('pointerup', (ev) => {
+    const p = toGraph(ev);
+    if (linking) {
+      const t = hitNode(p);
+      if (t) {   // dropping on the origin node creates a self-loop
+        const e = addEdge(linking.from, t.id);
+        setSelection({ type: 'edge', id: e.id });
+        scheduleSave();
+      }
+      linking = null;
+      return;
+    }
+    if (drag) { drag = null; }
+  });
+
+  els.cv.addEventListener('pointercancel', () => { drag = null; linking = null; });
+
+  els.cv.addEventListener('dblclick', (ev) => {
+    const p = toGraph(ev);
+    if (hitNode(p) || hitEdge(p)) return;
+    const n = addNodeAt(p.x, p.y);
+    setSelection({ type: 'node', id: n.id });
+    scheduleSave();
+  });
+
+  window.addEventListener('keydown', (ev) => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      if (state.selection) { ev.preventDefault(); deleteSelection(); }
+    } else if (ev.key === 'Escape') {
+      linking = null;
+      setSelection(null);
+    } else if (ev.key === ' ') {
+      ev.preventDefault();
+      if (state.running) stopWalkers(); else startWalkers();
+    }
+  });
+
+  els.walkerCount.addEventListener('input', () => {
+    state.walkerCount = clamp(parseInt(els.walkerCount.value, 10) || 1, 1, 9);
+    scheduleSave();
+  });
+  els.walkerCount.addEventListener('change', () => {
+    els.walkerCount.value = String(state.walkerCount);
+  });
+
+  els.startMode.addEventListener('change', () => {
+    state.startMode = els.startMode.value === 'selected' ? 'selected' : 'random';
+    if (state.startMode === 'selected') {
+      const n = state.startNodeId ? nodeById(state.startNodeId) : null;
+      toast(n ? '시작 노드: ' + n.label : '노드를 클릭하고 "이 노드에서 시작"을 누르세요');
+    }
+    scheduleSave();
+  });
+
+  els.btnRun.addEventListener('click', () => {
+    if (state.running) stopWalkers(); else startWalkers();
+  });
+
+  els.btnAddNode.addEventListener('click', () => {
+    const used = state.nodes;
+    const x = clamp(cw / 2 + (Math.random() - 0.5) * cw * 0.4, 60, Math.max(60, cw - 60));
+    const y = clamp(ch / 2 + (Math.random() - 0.5) * ch * 0.4, 60, Math.max(60, ch - 60));
+    const n = addNodeAt(x, y, 'N' + (used.length + 1));
+    setSelection({ type: 'node', id: n.id });
+    scheduleSave();
+  });
+
+  els.btnExport.addEventListener('click', exportFile);
+  els.btnImport.addEventListener('click', () => { els.importFile.value = ''; els.importFile.click(); });
+
+  els.soundFile.addEventListener('change', () => onSoundFile(els.soundFile.files[0]));
+  els.importFile.addEventListener('change', () => importFile(els.importFile.files[0]));
+
+  const flush = () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveNow(); } };
+  window.addEventListener('pagehide', flush);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+
+  new ResizeObserver(resize).observe(els.cv);
+}
+
+function capture(ev) {
+  try { els.cv.setPointerCapture(ev.pointerId); } catch (e) { /* synthetic pointer */ }
+}
+
+function toGraph(ev) {
+  const r = els.cv.getBoundingClientRect();
+  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+}
+
+// ---------------------------------------------------------------- self test
+function runSelfTests() {
+  const out = [];
+  let fails = 0;
+  const check = (name, fn) => {
+    try {
+      const ok = fn() === true;
+      if (!ok) fails++;
+      out.push((ok ? 'PASS  ' : 'FAIL  ') + name);
+    } catch (e) {
+      fails++;
+      out.push('FAIL  ' + name + '  (' + e.message + ')');
+    }
+  };
+
+  const E = [
+    { id: 'e1', from: 'a', to: 'b', weight: 1 },
+    { id: 'e2', from: 'a', to: 'c', weight: 3 },
+    { id: 'e3', from: 'a', to: 'a', weight: 0 },
+  ];
+
+  check('weight boundary: rng=0 -> first edge', () => nextEdgeFrom(E, 'a', () => 0).id === 'e1');
+  check('weight boundary: rng~1 -> last positive edge', () => nextEdgeFrom(E, 'a', () => 0.999999).id === 'e2');
+  check('zero weight never chosen', () => {
+    for (let i = 0; i < 2000; i++) if (nextEdgeFrom(E, 'a').id === 'e3') return false;
+    return true;
+  });
+  check('dead end -> null', () => nextEdgeFrom(E, 'zzz') === null);
+  check('distribution ~25/75', () => {
+    let b = 0;
+    const N = 20000;
+    for (let i = 0; i < N; i++) if (nextEdgeFrom(E, 'a').id === 'e1') b++;
+    const r = b / N;
+    return r > 0.22 && r < 0.28;
+  });
+  check('serialize/deserialize round trip', () => {
+    const g = {
+      walkerCount: 5,
+      nodes: [
+        { id: 'a', x: 10, y: 20, label: 'A', audio: { name: 'a.wav', mime: 'audio/wav', data: 'data:audio/wav;base64,AAAA' } },
+        { id: 'b', x: 30, y: 40, label: 'B', audio: null },
+      ],
+      edges: [{ id: 'e1', from: 'a', to: 'b', weight: 2.5 }, { id: 'e2', from: 'b', to: 'b', weight: 1 }],
+    };
+    const r = deserializeGraph(serializeGraph(g));
+    return r.nodes.length === 2 && r.edges.length === 2 && r.walkerCount === 5 &&
+      r.nodes[0].audio.data === g.nodes[0].audio.data &&
+      r.nodes[1].audio === null &&
+      r.edges[0].weight === 2.5 && r.edges[1].from === 'b' && r.edges[1].to === 'b';
+  });
+  check('deserialize drops dangling edges', () => {
+    const r = deserializeGraph(JSON.stringify({
+      nodes: [{ id: 'a', label: 'A' }],
+      edges: [{ from: 'a', to: 'ghost', weight: 1 }, { from: 'a', to: 'a', weight: 1 }],
+    }));
+    return r.edges.length === 1 && r.edges[0].to === 'a';
+  });
+  check('deserialize rejects bad input', () => {
+    let threw = false;
+    try { deserializeGraph('{"nodes":5}'); } catch (e) { threw = true; }
+    return threw;
+  });
+  check('deserialize clamps walkerCount', () => {
+    const r = deserializeGraph(JSON.stringify({ nodes: [], edges: [], walkerCount: 99 }));
+    return r.walkerCount === 9;
+  });
+  check('startMode/startNodeId survive round trip', () => {
+    const savedMode = state.startMode, savedStart = state.startNodeId;
+    state.startMode = 'selected';
+    state.startNodeId = state.nodes.length ? state.nodes[0].id : null;
+    const t = serializeGraph();
+    state.startMode = savedMode;
+    state.startNodeId = savedStart;
+    const r = deserializeGraph(t);
+    return r.startMode === 'selected' &&
+      r.startNodeId === (state.nodes.length ? state.nodes[0].id : null) &&
+      deserializeGraph(JSON.stringify({ nodes: [], edges: [] })).startMode === 'random';
+  });
+  check('stale startNodeId is dropped', () => {
+    const r = deserializeGraph(JSON.stringify({
+      nodes: [{ id: 'a', label: 'A' }], edges: [], startMode: 'selected', startNodeId: 'ghost',
+    }));
+    return r.startNodeId === null && r.startMode === 'selected';
+  });
+  check('probability normalizes by outgoing total', () => {
+    const saved = state.edges;
+    state.edges = E;
+    const p = edgeProbability(E[1]);
+    state.edges = saved;
+    return Math.abs(p - 0.75) < 1e-9;
+  });
+
+  document.title = fails ? 'SELFTEST FAIL' : 'SELFTEST PASS';
+  const pre = document.createElement('pre');
+  pre.id = 'selftest';
+  pre.textContent = out.join('\n') + '\n\n' + (fails ? fails + ' FAILED' : 'ALL PASSED');
+  document.body.appendChild(pre);
+  console.log(pre.textContent);
+}
+
+// ---------------------------------------------------------------- init
+(async function init() {
+  for (const id of ['cv', 'panel', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'soundFile', 'importFile']) {
+    els[id] = document.getElementById(id);
+  }
+  if (SELF_TEST) { runSelfTests(); return; }
+
+  resize();
+  bindUI();
+  rebuildPanel();
+  requestAnimationFrame(frame);
+
+  try {
+    const saved = await idb.get('graph');
+    if (saved) applyGraph(deserializeGraph(saved));
+  } catch (e) {
+    console.warn('load failed', e);
+  }
+  if (!state.nodes.length) {
+    seedDemo();
+    scheduleSave();
+  }
+  els.walkerCount.value = String(state.walkerCount);
+  els.startMode.value = state.startMode;
+  rebuildPanel();
+  syncControls();
+
+  window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb };
+})();
+
+window.addEventListener('error', (e) => {
+  document.body.dataset.error = String(e.message || e.type);
+});
+
+})();
+</script>
+</body>
+</html>
