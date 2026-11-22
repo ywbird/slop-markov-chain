@@ -849,10 +849,12 @@ const physics = {
 // ---------------------------------------------------------------- geometry
 // Edges are quadratic curves, not straight lines. Every edge bows to its own
 // left, so a pair a->b / b->a separates by itself without any extra offset.
-// A self-loop is a teardrop anchored on the side of the node that has the
-// fewest other edges, instead of always sitting on top of the node.
-const LOOP_SPREAD = 0.46;    // radians between the two feet of a self-loop
-const LOOP_GAP = 46;         // how far the teardrop tip reaches past the rim
+// A self-loop is the same single quadratic as every other edge, just with both
+// ends on the same node: it leaves the rim, bulges out, and comes back to the
+// rim a little further round. No corner anywhere. It is aimed at the side of
+// the node that has the fewest other edges instead of always sitting on top.
+const LOOP_SPREAD = 0.62;    // radians between the two feet of a self-loop
+const LOOP_GAP = 62;         // how far the bulge reaches past the rim
 const ARROW_GAP = 10;        // distance the arrow tip stops short of the node
 
 function angDiff(a, b) {
@@ -885,20 +887,22 @@ function edgeGeom(e) {
 
   if (a.id === b.id) {
     const dir = freeAngle(a, e);
-    const p0 = { x: a.x + Math.cos(dir - LOOP_SPREAD) * R, y: a.y + Math.sin(dir - LOOP_SPREAD) * R };
-    const p1 = { x: a.x + Math.cos(dir + LOOP_SPREAD) * R, y: a.y + Math.sin(dir + LOOP_SPREAD) * R };
-    const tip = { x: a.x + Math.cos(dir) * (R + LOOP_GAP), y: a.y + Math.sin(dir) * (R + LOOP_GAP) };
-    const c1 = { x: a.x + Math.cos(dir - LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72),
-                 y: a.y + Math.sin(dir - LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72) };
-    const c2 = { x: a.x + Math.cos(dir + LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72),
-                 y: a.y + Math.sin(dir + LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72) };
-    // the walk ends at p1 (back on the rim), so that is where the arrow goes
+    // one quadratic, both feet on the rim; arrow foot is p1 (where the walk ends)
+    const sx = a.x + Math.cos(dir - LOOP_SPREAD) * R;
+    const sy = a.y + Math.sin(dir - LOOP_SPREAD) * R;
+    const ex = a.x + Math.cos(dir + LOOP_SPREAD) * R;
+    const ey = a.y + Math.sin(dir + LOOP_SPREAD) * R;
+    // control point sits straight out along dir, far enough that the curve
+    // bulges like a leaf instead of pinching into a point
+    const cx = a.x + Math.cos(dir) * (R + LOOP_GAP * 2);
+    const cy = a.y + Math.sin(dir) * (R + LOOP_GAP * 2);
+    // the label goes outside the curve's own apex, never on top of the curve
+    const apexR = Math.hypot((sx + 2 * cx + ex) / 4 - a.x, (sy + 2 * cy + ey) / 4 - a.y);
     return {
-      loop: true, p0, c1, tip, c2, p1,
-      ax: p1.x, ay: p1.y, angle: Math.atan2(p1.y - c2.y, p1.x - c2.x),
-      // the label clears the tip so it never covers the point of the teardrop
-      lx: a.x + Math.cos(dir) * (R + LOOP_GAP + 30),
-      ly: a.y + Math.sin(dir) * (R + LOOP_GAP + 30),
+      loop: true, sx, sy, cx, cy, ex, ey,
+      ax: ex, ay: ey, angle: Math.atan2(ey - cy, ex - cx),
+      lx: a.x + Math.cos(dir) * (apexR + 26),
+      ly: a.y + Math.sin(dir) * (apexR + 26),
     };
   }
 
@@ -912,35 +916,20 @@ function edgeGeom(e) {
   const db = Math.hypot(mx - b.x, my - b.y) || 1;
   const sx = a.x + (mx - a.x) / da * R, sy = a.y + (my - a.y) / da * R;
   const ex = b.x + (mx - b.x) / db * (R + ARROW_GAP), ey = b.y + (my - b.y) / db * (R + ARROW_GAP);
-  // apex of the quadratic, and the label just outside it
+  // apex of the quadratic; the chip sits outside it, clear of the stroke
   const apexX = (sx + 2 * mx + ex) / 4, apexY = (sy + 2 * my + ey) / 4;
   const ox = apexX - (a.x + b.x) / 2, oy = apexY - (a.y + b.y) / 2;
   const ol = Math.hypot(ox, oy) || 1;
   return {
     loop: false, sx, sy, cx: mx, cy: my, ex, ey,
     angle: Math.atan2(ey - my, ex - mx),
-    lx: apexX + ox / ol * 15, ly: apexY + oy / ol * 15,
+    lx: apexX + ox / ol * 26, ly: apexY + oy / ol * 26,
   };
 }
 
 // flatten an edge into points, for hit testing
-function edgePoints(g, steps = 22) {
+function edgePoints(g, steps = 24) {
   const pts = [];
-  if (g.loop) {
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      // first quadratic p0 -> c1 -> tip
-      const u = 1 - t;
-      pts.push({ x: u * u * g.p0.x + 2 * u * t * g.c1.x + t * t * g.tip.x,
-                 y: u * u * g.p0.y + 2 * u * t * g.c1.y + t * t * g.tip.y });
-    }
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps, u = 1 - t;
-      pts.push({ x: u * u * g.tip.x + 2 * u * t * g.c2.x + t * t * g.p1.x,
-                 y: u * u * g.tip.y + 2 * u * t * g.c2.y + t * t * g.p1.y });
-    }
-    return pts;
-  }
   for (let i = 0; i <= steps; i++) {
     const t = i / steps, u = 1 - t;
     pts.push({ x: u * u * g.sx + 2 * u * t * g.cx + t * t * g.ex,
@@ -975,15 +964,27 @@ function hitNode(p) {
   return best;
 }
 
+const CHIP_HALF_W = 15, CHIP_HALF_H = 11;   // chip hit box, matches draw()
+const chipDist = (p, g) =>
+  Math.max(Math.abs(p.x - g.lx) - CHIP_HALF_W, Math.abs(p.y - g.ly) - CHIP_HALF_H, 0);
+
+// A chip is a target in its own right; only when the pointer is on no chip do
+// we look at the curves. Chips win ties because they are small and deliberate.
 function hitEdge(p) {
-  let best = null, bestD = 13;
+  let best = null, bestD = Infinity;
   for (const e of state.edges) {
     const g = edgeGeom(e);
     if (!g) continue;
-    // the curve, plus its percentage chip so the label is hoverable too
-    const dCurve = distToPolyline(p.x, p.y, edgePoints(g));
-    const dChip = Math.max(0, Math.hypot(p.x - g.lx, p.y - g.ly) - 11);
-    const d = Math.min(dCurve, dChip);
+    const d = chipDist(p, g);
+    // last one wins, because draw() paints the later edges on top
+    if (d === 0 && d <= bestD) { bestD = d; best = e; }
+  }
+  if (best) return best;
+  bestD = 13;
+  for (const e of state.edges) {
+    const g = edgeGeom(e);
+    if (!g) continue;
+    const d = distToPolyline(p.x, p.y, edgePoints(g));
     if (d < bestD) { bestD = d; best = e; }
   }
   return best;
@@ -1060,14 +1061,8 @@ function draw(now) {
     ctx.lineCap = 'round';
 
     ctx.beginPath();
-    if (g.loop) {
-      ctx.moveTo(g.p0.x, g.p0.y);
-      ctx.quadraticCurveTo(g.c1.x, g.c1.y, g.tip.x, g.tip.y);
-      ctx.quadraticCurveTo(g.c2.x, g.c2.y, g.p1.x, g.p1.y);
-    } else {
-      ctx.moveTo(g.sx, g.sy);
-      ctx.quadraticCurveTo(g.cx, g.cy, g.ex, g.ey);
-    }
+    ctx.moveTo(g.sx, g.sy);
+    ctx.quadraticCurveTo(g.cx, g.cy, g.ex, g.ey);
     ctx.stroke();
 
     // arrow head
@@ -2066,13 +2061,39 @@ function runSelfTests() {
         return Math.abs(dStart - R) < 0.001 && Math.abs(dEnd - (R + ARROW_GAP)) < 0.001;
       }));
 
-  check('self-loop is a teardrop that leaves and returns on the rim', () =>
+  check('self-loop is one smooth quadratic, both feet on the rim', () =>
     withNodes([mkNode('a', 100, 100)], [{ id: 'e', from: 'a', to: 'a', weight: 100 }], () => {
       const g = edgeGeom(state.edges[0]);
       const a = nodeById('a');
-      const onRim = (p) => Math.abs(Math.hypot(p.x - a.x, p.y - a.y) - R) < 0.001;
-      const tipFar = Math.hypot(g.tip.x - a.x, g.tip.y - a.y) > R + LOOP_GAP - 1;
-      return g.loop && onRim(g.p0) && onRim(g.p1) && tipFar;
+      const onRim = (x, y) => Math.abs(Math.hypot(x - a.x, y - a.y) - R) < 0.001;
+      const bulge = Math.hypot((g.sx + 2 * g.cx + g.ex) / 4 - a.x, (g.sy + 2 * g.cy + g.ey) / 4 - a.y);
+      // single quadratic: no second control pair anywhere in the geometry
+      const single = g.c1 === undefined && g.c2 === undefined && g.tip === undefined;
+      // apex of a quadratic sits half-way to the control point, so it never
+      // reaches the control distance itself: just require a clear bulge
+      return g.loop && onRim(g.sx, g.sy) && onRim(g.ex, g.ey) && bulge > R + 40 && single;
+    }));
+
+  check('self-loop has no corner: curvature changes gradually, never jumps', () =>
+    withNodes([mkNode('a', 0, 0)], [{ id: 'e', from: 'a', to: 'a', weight: 100 }], () => {
+      const pts = edgePoints(edgeGeom(state.edges[0]), 200);
+      const turns = [];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a1 = Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x);
+        const a2 = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x);
+        turns.push(angDiff(a1, a2));
+      }
+      // a corner shows up as one turn far larger than its neighbours
+      let maxSpike = 0;
+      for (let i = 1; i < turns.length - 1; i++) {
+        const around = (turns[i - 1] + turns[i + 1]) / 2;
+        if (turns[i] > 1e-4) maxSpike = Math.max(maxSpike, turns[i] / Math.max(around, 1e-4));
+      }
+      let sum = 0;
+      for (const t of turns) sum += t;
+      // a loop turns a lot overall (a straight line turns 0) and no single
+      // step of the walk dominates, which is what a corner would look like
+      return sum > 2 && maxSpike < 1.35;
     }));
 
   check('demo seed leaves every node at exactly 100 with a real bias', () =>
@@ -2090,7 +2111,7 @@ function runSelfTests() {
       { id: 'e2', from: 'a', to: 'a', weight: 50 },
     ], () => {
       const g = edgeGeom(state.edges[1]);
-      return g.loop && g.tip.x < 0;
+      return g.loop && g.cx < 0;   // the bulge points away from the neighbour
     });
   });
 
@@ -2103,11 +2124,42 @@ function runSelfTests() {
         return onCurve && onCurve.id === 'e' && onChord === null;
       }));
 
-  check('hit testing finds a self-loop tip', () =>
+  check('percentage chip never sits on its own curve', () =>
+    withNodes([mkNode('a', 100, 100), mkNode('b', 340, 190)], [
+      { id: 'e1', from: 'a', to: 'a', weight: 50 },
+      { id: 'e2', from: 'a', to: 'b', weight: 50 },
+    ], () => {
+      // chip is ~40x20 css px, so its centre must stay clear of the curve
+      const CHIP_CLEAR = 25;
+      return state.edges.every(e => {
+        const g = edgeGeom(e);
+        return distToPolyline(g.lx, g.ly, edgePoints(g)) >= CHIP_CLEAR;
+      });
+    }));
+
+  check('a chip is clickable: the hit is this edge or the one covering its chip', () =>
+    withNodes([mkNode('a', 100, 100), mkNode('b', 340, 190), mkNode('c', 90, 330)], [
+      { id: 'e1', from: 'a', to: 'a', weight: 34 },
+      { id: 'e2', from: 'a', to: 'b', weight: 33 },
+      { id: 'e3', from: 'a', to: 'c', weight: 33 },
+      { id: 'e4', from: 'c', to: 'b', weight: 100 },
+    ], () => state.edges.every(e => {
+      const g = edgeGeom(e);
+      const h = hitEdge({ x: g.lx, y: g.ly });
+      if (!h) return false;
+      // two chips can overlap; then the topmost (last drawn) one wins, which is
+      // what the user sees, so it is enough that *some* chip covers the point
+      const hg = edgeGeom(h);
+      return h.id === e.id || chipDist({ x: g.lx, y: g.ly }, hg) === 0;
+    })));
+
+  check('hit testing finds the bulge of a self-loop', () =>
     withNodes([mkNode('a', 100, 100)], [{ id: 'e', from: 'a', to: 'a', weight: 100 }], () => {
       const g = edgeGeom(state.edges[0]);
-      const hit = hitEdge({ x: g.tip.x, y: g.tip.y });
-      return hit && hit.id === 'e';
+      const hit = hitEdge({ x: (g.sx + 2 * g.cx + g.ex) / 4, y: (g.sy + 2 * g.cy + g.ey) / 4 });
+      // and the empty space next to the node is not a hit
+      const miss = hitEdge({ x: 100 + R + 8, y: 100 });
+      return hit && hit.id === 'e' && miss === null;
     }));
 
   check('delay survives round trip and is clamped to 0..DELAY_MAX', () => {

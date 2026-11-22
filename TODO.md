@@ -36,15 +36,18 @@
 - Editing UI: no side panel and no top bar. Background / node / edge right-click menus, double-click on a node for its sound, wheel on an edge for probability, inline rename. Node color comes from an 8-color palette and is stored per node (`color`).
 - Weights are percentages (`weight` = % of a node's outgoing traffic); `setEdgeWeight` keeps each node's outgoing sum at exactly 100. Node fields `gravity`, `repel`, `pinned` drive the optional layout simulation (`physics` flag is saved).
 - Physics is a placement tool: it settles, stops, and saves the result. The camera follows the centre of mass only while it runs, and holds still as soon as any node is pinned (a pan would slide the pinned node on screen).
-- Look: dark navy background with pastel nodes/edges/walkers, 2px borders everywhere, 12–18px corner radii, Jua from Google Fonts with a system fallback. Edges are quadratic curves; self-loops are teardrops turned toward the node's emptiest side.
+- Look: dark navy background with pastel nodes/edges/walkers, 2px borders everywhere, 12–18px corner radii, Jua from Google Fonts with a system fallback. Every edge, self-loops included, is one quadratic curve; a self-loop just has both feet on the same node and is aimed at that node's emptiest side. Percentage chips sit outside the curve and are click targets of their own.
 
 ## Feedback
 
 - [x] visual
     - [x] 회귀 간선 형태 변경: 항상 노드의 위쪽에 있으니까 이상함. 다른 간선이 없는 방향으로 + 원형 보다는 물방울 같은 모양의 곡선
         - 방향: 노드 주변 48방향을 훑어 다른 간선과 가장 먼 방향 (확인함)
-        - 모양: 이차 베지어 2개로 만든 물방울 (p0 → tip → p1, 양 끝은 테두리 위) (확인함)
-        - 화살표는 p1에 붙고, 퍼센트 칩은 꼭짓점 바깥 30px (확인함)
+        - 모양: 처음엔 이차 베지어 2개로 뾰족한 물방울 → 다른 간선과 모양 언어가 달라 지적받음
+        - 고친 모양: 다른 간선과 똑같은 **이차 베지어 1개**. 양 끝은 테두리, 제어점은 빈 방향으로 R+124 (확인함)
+            - 뾰족한 점 없음. 200샘플에서 곡률 변화가 튀지 않고 총 회전량 > 2rad (확인함)
+            - 테두리에서 나와 테두리로 돌아오고, 곡선이 노드 안으로 파고들지 않음 (최소 거리 = R) (확인함)
+        - 화살표는 복귀점(테두리)에, 퍼센트 칩은 곡선 꼭짓점 바깥 26px (확인함)
         - 다른 간선이 하나도 없으면 위쪽 (확인함)
     - [x] 간선 형태 변경: 둥글게. 모든 간선이 직선인건 이상함.
         - 모든 간선을 이차 베지어로. 길이에 비례해 휘고(12~52px) 왼쪽으로 휨 (확인함)
