@@ -16,23 +16,14 @@
     font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     display:flex;flex-direction:column;overflow:hidden;
   }
-  header{
-    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-    padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);
-  }
-  header h1{font-size:14px;font-weight:600;letter-spacing:.02em;margin:0 8px 0 0;color:#eaf2fb}
-  header .sep{width:1px;height:20px;background:var(--line2)}
-  header label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
   button{
     font:inherit;font-size:13px;color:var(--text);background:#1a222c;border:1px solid var(--line2);
     border-radius:6px;padding:5px 10px;cursor:pointer;
   }
   button:hover{background:#212b37;border-color:#3a4859}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#06211c;font-weight:600}
-  button.primary:hover{filter:brightness(1.08)}
-  button.primary.running{background:var(--danger);border-color:var(--danger);color:#2a0b08}
   button.danger{color:var(--danger);border-color:#3a2a2a;background:#1d1616}
   button.danger:hover{background:#2a1c1c}
+  button.on{background:rgba(102,217,196,.16);border-color:#3d7d70;color:#9ff0e1}
   input,select{
     font:inherit;font-size:13px;color:var(--text);background:#0d1218;border:1px solid var(--line2);
     border-radius:6px;padding:4px 7px;
@@ -40,12 +31,23 @@
   input:focus,select:focus{outline:none;border-color:var(--accent)}
   input[type=number]{width:64px}
   input[type=range]{width:100%;accent-color:var(--accent);padding:0;background:none;border:none}
+  #run{
+    position:fixed;left:20px;bottom:20px;z-index:20;
+    width:52px;height:52px;padding:0;border:none;background:none;
+    display:grid;place-items:center;cursor:pointer;color:var(--accent);
+    opacity:.72;transition:opacity .15s,transform .15s;
+  }
+  #run:hover{opacity:1;transform:scale(1.06)}
+  #run svg{width:40px;height:40px;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.55))}
+  #run.running{color:var(--danger)}
+  #run:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:10px}
   main{flex:1;position:relative;min-height:0}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
   #menu{
     position:fixed;z-index:50;min-width:168px;padding:6px;
     background:#141b24;border:1px solid var(--line2);border-radius:10px;
     box-shadow:0 12px 32px rgba(0,0,0,.55);display:none;
+    max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;
   }
   #menu.show{display:block}
   #menu .title{
@@ -69,8 +71,17 @@
   #menu .sw.on{border-color:#e8f1fb;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 0 0 2px rgba(102,217,196,.35)}
   #menu .num{display:flex;align-items:center;gap:8px;padding:2px 8px 8px;font-size:12px;color:var(--muted)}
   #menu .num input{width:70px}
+  #menu .slider{display:block;padding:2px 8px 8px}
+  #menu .slider .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:3px}
+  #menu .slider .lab b{color:#c8d6e5;font-weight:600;font-variant-numeric:tabular-nums}
+  #menu .seg{display:flex;gap:6px;padding:2px 8px 8px}
+  #menu .seg button{justify-content:center;border:1px solid var(--line2);background:#0f151d;font-size:12px;padding:5px 8px}
+  #menu .seg button.on{background:rgba(102,217,196,.16);border-color:#3d7d70;color:#9ff0e1}
+  #menu .rowline{display:flex;align-items:center;gap:6px;padding:2px 8px 8px}
+  #menu .rowline input[type=number]{width:52px;text-align:center}
+  #menu .ghost{width:26px;padding:2px 0;text-align:center}
   #hint{
-    position:fixed;left:14px;bottom:12px;z-index:10;pointer-events:none;
+    position:fixed;left:86px;bottom:22px;z-index:10;pointer-events:none;
     color:var(--muted);font-size:12px;line-height:1.7;
     padding:6px 10px;border-radius:8px;background:rgba(14,17,22,.72);
     transition:opacity .5s;
@@ -91,27 +102,17 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>Markov Sound Graph</h1>
-  <div class="sep"></div>
-  <label>워커 <input id="walkerCount" type="number" min="1" max="9" value="3"></label>
-  <label>시작 <select id="startMode">
-    <option value="random">랜덤 노드</option>
-    <option value="selected">선택한 노드</option>
-  </select></label>
-  <button id="btnRun" class="primary">시작</button>
-  <div class="sep"></div>
-  <button id="btnAddNode">노드 추가</button>
-  <button id="btnClear" class="danger">비우기</button>
-  <button id="btnExport">파일로 저장</button>
-  <button id="btnImport">불러오기</button>
-</header>
 <main>
   <canvas id="cv"></canvas>
 </main>
+<button id="run" aria-label="시작" title="시작 / 정지 (Space)">
+  <svg id="runIcon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z" fill="currentColor"/>
+  </svg>
+</button>
 <div id="hint">
-  <b>더블클릭</b> 빈 곳=노드 추가 · 노드=소리 선택 &nbsp;|&nbsp; <b>우클릭</b> 노드·간선 메뉴 &nbsp;|&nbsp;
-  <b>Shift+드래그</b> 연결 &nbsp;|&nbsp; <b>간선 위 휠</b> 가중치 (Shift=1씩) &nbsp;|&nbsp; <b>Del</b> 삭제 &nbsp;|&nbsp; <b>Space</b> 시작/정지
+  <b>더블클릭</b> 빈 곳=노드 추가 · 노드=소리 선택 &nbsp;|&nbsp; <b>우클릭</b> 노드·간선·배경 메뉴 &nbsp;|&nbsp;
+  <b>Shift+드래그</b> 연결 &nbsp;|&nbsp; <b>간선 위 휠</b> 확률 (Shift=10%) &nbsp;|&nbsp; <b>Del</b> 삭제 &nbsp;|&nbsp; <b>Space</b> 시작/정지
 </div>
 <div id="menu" role="menu"></div>
 <input id="soundFile" type="file" accept="audio/*" hidden>
@@ -127,6 +128,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const round1 = (v) => Math.round(v * 10) / 10;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R = 27;                      // node radius (css px)
+const numOrDefault = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 const COLORS = ['#ffd166','#7aa7ff','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#ff9f6b','#8b9dff','#f2a0ff'];
 const SAVE_VERSION = 1;
 const SELF_TEST = /(?:^|[?&])selftest=1(?:&|$)/.test(location.search);
@@ -142,6 +144,8 @@ const state = {
   walkers: [],           // runtime
   running: false,
   epoch: 0,
+  physics: false,        // gravity toggle
+  cam: { x: 0, y: 0 },   // world -> screen translation
 };
 
 const els = {};
@@ -155,6 +159,7 @@ let menuOpen = null;  // {kind:'node'|'edge', id}
 const nodeById = (id) => state.nodes.find(n => n.id === id) || null;
 const edgeById = (id) => state.edges.find(e => e.id === id) || null;
 
+// Weights are percentages: the outgoing edges of a node always sum to 100.
 function nextEdgeFrom(edges, fromId, rng = Math.random) {
   const outs = edges.filter(e => e.from === fromId && e.weight > 0);
   if (!outs.length) return null;
@@ -168,12 +173,92 @@ function pickNext(fromId, rng = Math.random) {
   const e = nextEdgeFrom(state.edges, fromId, rng);
   return e ? nodeById(e.to) : null;
 }
+function outEdges(fromId) {
+  return state.edges.filter(e => e.from === fromId);
+}
 function outWeight(fromId) {
-  return state.edges.reduce((s, e) => s + (e.from === fromId ? e.weight : 0), 0);
+  return outEdges(fromId).reduce((s, e) => s + e.weight, 0);
 }
 function edgeProbability(e) {
   const t = outWeight(e.from);
   return t > 0 ? e.weight / t : 0;
+}
+function edgePct(e) {
+  return Math.round(e.weight * 10) / 10;
+}
+// Round to 0.1 while keeping the sum at exactly 100 (largest-remainder fixup).
+function normalizeOutgoing(fromId) {
+  const outs = outEdges(fromId);
+  if (!outs.length) return;
+  const sum = outs.reduce((s, e) => s + e.weight, 0);
+  if (!(sum > 0)) {
+    for (const e of outs) e.weight = round1(100 / outs.length);
+  } else {
+    for (const e of outs) e.weight = Math.round(e.weight / sum * 1000) / 10;
+  }
+  const after = outs.reduce((s, e) => s + e.weight, 0);
+  let diff = round1(100 - after);
+  if (Math.abs(diff) >= 0.05) {
+    // push the leftover onto the largest edge so the sum is exactly 100
+    const biggest = outs.reduce((a, b) => (b.weight > a.weight ? b : a), outs[0]);
+    biggest.weight = round1(biggest.weight + diff);
+  }
+}
+// Set one edge's percentage; the rest keep their previous ratio.
+// Raising an edge to 100 stores the previous ratio so lowering it restores it.
+function setEdgeWeight(e, pct) {
+  const node = nodeById(e.from);
+  if (!node) return e.weight;
+  const outs = outEdges(e.from);
+  if (outs.length <= 1) { e.weight = 100; return e.weight; }
+  const target = clamp(round1(pct), 0, 100);
+  const others = outs.filter(o => o.id !== e.id);
+  const oldsum = others.reduce((s, o) => s + o.weight, 0);
+  if (target >= 100) {
+    // remember the ratio we are about to destroy
+    if (oldsum > 0) {
+      e.savedRatio = others.map(o => ({ id: o.id, w: o.weight }));
+    }
+    e.weight = 100;
+    for (const o of others) o.weight = 0;
+    return e.weight;
+  }
+  let ratios = null;
+  if (e.savedRatio && target > 0) {
+    // coming back down from 100: restore what was there before
+    const map = new Map(e.savedRatio.map(r => [r.id, r.w]));
+    if (others.every(o => map.has(o.id))) {
+      ratios = others.map(o => map.get(o.id));
+      e.savedRatio = null;
+    }
+  }
+  if (!ratios) {
+    if (e.weight >= 100 && target > 0) {
+      // no usable memory: split evenly
+      ratios = others.map(() => 1);
+    } else {
+      ratios = others.map(o => o.weight);
+    }
+  }
+  const rest = round1(100 - target);
+  const rsum = ratios.reduce((a, b) => a + b, 0);
+  if (rsum <= 0) {
+    const each = round1(rest / others.length);
+    for (const o of others) o.weight = each;
+  } else {
+    for (let i = 0; i < others.length; i++) {
+      others[i].weight = Math.round(rest * (ratios[i] / rsum) * 10) / 10;
+    }
+  }
+  e.weight = target;
+  // fix rounding drift on the others so the node totals 100
+  const total = outs.reduce((s, o) => s + o.weight, 0);
+  const diff = round1(100 - total);
+  if (Math.abs(diff) >= 0.05) {
+    const biggest = others.reduce((a, b) => (b.weight > a.weight ? b : a), others[0]);
+    biggest.weight = Math.max(0, round1(biggest.weight + diff));
+  }
+  return e.weight;
 }
 
 function nextNodeName() {
@@ -184,15 +269,33 @@ function nextNodeName() {
 }
 
 function addNodeAt(x, y, label) {
-  const n = { id: uid('n'), x, y, label: label || nextNodeName(), audio: null, color: null };
+  const n = {
+    id: uid('n'), x, y, label: label || nextNodeName(), audio: null, color: null,
+    gravity: 1, repel: 1, pinned: false,
+  };
   state.nodes.push(n);
   return n;
 }
 function addEdge(from, to) {
   const existing = state.edges.find(e => e.from === from && e.to === to);
-  if (existing) { existing.weight = round1(existing.weight + 1); return existing; }
-  const e = { id: uid('e'), from, to, weight: 1 };
+  if (existing) return existing;
+  const e = { id: uid('e'), from, to, weight: 0 };
   state.edges.push(e);
+  const outs = outEdges(from);
+  const n = outs.length;
+  const share = Math.round(100 / n * 10) / 10;
+  const before = outs.filter(o => o.id !== e.id);
+  const oldsum = before.reduce((s, o) => s + o.weight, 0);
+  const rest = round1(100 - share);
+  if (before.length) {
+    if (oldsum > 0) {
+      for (const o of before) o.weight = Math.round(rest * (o.weight / oldsum) * 10) / 10;
+    } else {
+      for (const o of before) o.weight = Math.round(rest / before.length * 10) / 10;
+    }
+  }
+  e.weight = share;
+  normalizeOutgoing(from);
   return e;
 }
 function deleteNode(id) {
@@ -201,12 +304,17 @@ function deleteNode(id) {
   state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
   if (state.startNodeId === id) state.startNodeId = null;
   state.selection = null;
+  physics.wake();
   closeMenu();
   scheduleSave();
 }
 function deleteEdge(id) {
-  state.edges = state.edges.filter(e => e.id !== id);
+  const e = edgeById(id);
+  const from = e ? e.from : null;
+  state.edges = state.edges.filter(x => x.id !== id);
+  if (from) normalizeOutgoing(from);
   state.selection = null;
+  physics.wake();
   closeMenu();
   scheduleSave();
 }
@@ -225,9 +333,13 @@ function serializeGraph(g = state) {
     walkerCount: g.walkerCount,
     startMode: g.startMode,
     startNodeId: g.startNodeId,
+    physics: !!g.physics,
     nodes: g.nodes.map(n => ({
       id: n.id, x: round1(n.x), y: round1(n.y), label: n.label,
       color: n.color || null,
+      gravity: numOrDefault(n.gravity, 1),
+      repel: numOrDefault(n.repel, 1),
+      pinned: !!n.pinned,
       audio: n.audio ? { name: n.audio.name, mime: n.audio.mime, data: n.audio.data } : null,
     })),
     edges: g.edges.map(e => ({ id: e.id, from: e.from, to: e.to, weight: e.weight })),
@@ -251,6 +363,9 @@ function deserializeGraph(text) {
       y: Number(n && n.y) || 0,
       label: String((n && n.label) != null ? n.label : id),
       color: PALETTE.includes(n && n.color) ? n.color : null,
+      gravity: clamp(numOrDefault(n && n.gravity, 1), 0, 3),
+      repel: clamp(numOrDefault(n && n.repel, 1), 0, 3),
+      pinned: !!(n && n.pinned),
       audio: a && a.data ? { name: String(a.name || 'sound'), mime: String(a.mime || ''), data: String(a.data) } : null,
     };
   });
@@ -264,12 +379,36 @@ function deserializeGraph(text) {
       weight: Math.max(0, Number(e.weight) || 0),
     });
   }
+  // old files stored arbitrary weights; the model is now percentages
+  for (const n of nodes) {
+    const outs = edges.filter(e => e.from === n.id);
+    if (!outs.length) continue;
+    const sum = outs.reduce((s2, e) => s2 + e.weight, 0);
+    if (sum > 0 && Math.abs(sum - 100) > 0.05) {
+      for (const e of outs) e.weight = Math.round(e.weight / sum * 1000) / 10;
+    }
+  }
   return {
     nodes, edges,
     walkerCount: clamp(Number(d.walkerCount) || 3, 1, 9),
+    physics: !!d.physics,
     startMode: d.startMode === 'selected' ? 'selected' : 'random',
     startNodeId: nodes.some(n => n.id === d.startNodeId) ? d.startNodeId : null,
   };
+}
+
+// put the graph's centre of mass in the middle of the viewport
+function fitToView() {
+  const nodes = state.nodes;
+  if (!nodes.length) { state.cam.x = 0; state.cam.y = 0; return; }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+    minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+  }
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  state.cam.x = cw / 2 - cx;
+  state.cam.y = ch / 2 - cy;
 }
 
 function applyGraph(g) {
@@ -279,10 +418,11 @@ function applyGraph(g) {
   state.walkerCount = clamp(g.walkerCount || state.walkerCount, 1, 9);
   state.startMode = g.startMode || state.startMode;
   state.startNodeId = g.startNodeId || null;
+  state.physics = !!g.physics;
   state.selection = null;
   state.walkers = [];
-  els.walkerCount.value = String(state.walkerCount);
-  els.startMode.value = state.startMode;
+  fitToView();
+  physics.wake();
   closeMenu();
   syncControls();
 }
@@ -523,6 +663,158 @@ function stopWalkers() {
   syncControls();
 }
 
+// ---------------------------------------------------------------- physics
+// Placement tool, not a live effect: it settles and then stops.
+// Forces per node: gravity pulls toward the graph's centre of mass, repel
+// pushes overlapping nodes apart, edges act as springs, and pinned nodes
+// never move. The camera only follows while the simulation runs, and never
+// while a node is being dragged.
+const physics = {
+  on: false,
+  raf: null,
+  v: new Map(),        // id -> {x, y}
+  still: 0,            // consecutive frames below the motion threshold
+  camTarget: null,     // {x, y} centre of mass to follow
+  speed: 0.9,          // px per step multiplier
+  root: 0,             // css px per world unit (always 1 here)
+
+  wake() {
+    if (!state.physics) return;
+    this.on = true;
+    this.still = 0;
+    if (this.raf) return;
+    this.loop();
+  },
+
+  stop() {
+    this.on = false;
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
+  },
+
+  vel(id) {
+    let v = this.v.get(id);
+    if (!v) { v = { x: 0, y: 0 }; this.v.set(id, v); }
+    return v;
+  },
+
+  // one integration step; returns the largest displacement this frame
+  step() {
+    const nodes = state.nodes;
+    if (!nodes.length) return 0;
+    let cx = 0, cy = 0;
+    for (const n of nodes) { cx += n.x; cy += n.y; }
+    cx /= nodes.length; cy /= nodes.length;
+
+    const fx = new Map(), fy = new Map();
+    for (const n of nodes) { fx.set(n.id, 0); fy.set(n.id, 0); }
+
+    // gravity toward the centre of mass
+    for (const n of nodes) {
+      if (n.pinned) continue;
+      const g = numOrDefault(n.gravity, 1) * 0.012;
+      if (!g) continue;
+      fx.set(n.id, fx.get(n.id) + (cx - n.x) * g);
+      fy.set(n.id, fy.get(n.id) + (cy - n.y) * g);
+    }
+
+    // pairwise repulsion, stronger when nodes overlap
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const ra = numOrDefault(a.repel, 1), rb = numOrDefault(b.repel, 1);
+        const strength = (ra + rb) / 2;
+        if (!strength) continue;
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d2 = dx * dx + dy * dy;
+        const minD = R * 2.6;
+        if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.01; }
+        const d = Math.sqrt(d2);
+        const push = Math.min(220, strength * 900 / Math.max(d2, 400));
+        if (d < minD) {
+          // hard separation so labels never overlap
+          const extra = (minD - d) * 0.22;
+          const ux = dx / d, uy = dy / d;
+          if (!a.pinned) { fx.set(a.id, fx.get(a.id) - ux * (push + extra)); fy.set(a.id, fy.get(a.id) - uy * (push + extra)); }
+          if (!b.pinned) { fx.set(b.id, fx.get(b.id) + ux * (push + extra)); fy.set(b.id, fy.get(b.id) + uy * (push + extra)); }
+        } else {
+          const ux = dx / d, uy = dy / d;
+          if (!a.pinned) { fx.set(a.id, fx.get(a.id) - ux * push); fy.set(a.id, fy.get(a.id) - uy * push); }
+          if (!b.pinned) { fx.set(b.id, fx.get(b.id) + ux * push); fy.set(b.id, fy.get(b.id) + uy * push); }
+        }
+      }
+    }
+
+    // edges as springs (self-loops do not pull)
+    const rest = R * 4.2;
+    for (const e of state.edges) {
+      if (e.from === e.to) continue;
+      const a = nodeById(e.from), b = nodeById(e.to);
+      if (!a || !b) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const k = 0.010 * (d - rest) / d;
+      const px = dx * k, py = dy * k;
+      if (!a.pinned) { fx.set(a.id, fx.get(a.id) + px); fy.set(a.id, fy.get(a.id) + py); }
+      if (!b.pinned) { fx.set(b.id, fx.get(b.id) - px); fy.set(b.id, fy.get(b.id) - py); }
+    }
+
+    let maxMove = 0;
+    for (const n of nodes) {
+      const vel = this.vel(n.id);
+      if (n.pinned) { vel.x = vel.y = 0; continue; }
+      vel.x = (vel.x + fx.get(n.id)) * 0.82;
+      vel.y = (vel.y + fy.get(n.id)) * 0.82;
+      const sp = Math.hypot(vel.x, vel.y);
+      if (sp > 14) { vel.x = vel.x / sp * 14; vel.y = vel.y / sp * 14; }
+      n.x += vel.x * this.speed;
+      n.y += vel.y * this.speed;
+      maxMove = Math.max(maxMove, Math.hypot(vel.x, vel.y));
+    }
+    return maxMove;
+  },
+
+  centre() {
+    const nodes = state.nodes;
+    if (!nodes.length) return null;
+    let cx = 0, cy = 0;
+    for (const n of nodes) { cx += n.x; cy += n.y; }
+    return { x: cx / nodes.length, y: cy / nodes.length };
+  },
+
+  loop() {
+    this.raf = requestAnimationFrame(() => {
+      this.raf = null;
+      if (!state.physics) { this.on = false; return; }
+      const move = this.step();
+      // camera: keep the graph's centre of mass centred in the viewport
+      if (!drag) {
+        const c = this.centre();
+        if (c) {
+          state.cam.x += (cw / 2 - c.x - state.cam.x) * 0.06;
+          state.cam.y += (ch / 2 - c.y - state.cam.y) * 0.06;
+        }
+      }
+      // settle: stop when everything is basically still
+      if (move < 0.06) this.still++;
+      else this.still = 0;
+      if (this.still > 45) {
+        this.on = false;
+        state.physics = false;
+        syncControls();
+        syncPhysicsToggle();
+        scheduleSave();   // keep the settled layout
+        return;
+      }
+      this.loop();
+    });
+  },
+
+  // add a camera translation to a world point
+  toScreen(p) {
+    return { x: p.x + state.cam.x, y: p.y + state.cam.y };
+  },
+};
+
 // ---------------------------------------------------------------- geometry
 function edgeGeom(e) {
   const a = nodeById(e.from), b = nodeById(e.to);
@@ -611,6 +903,7 @@ function draw(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#0e1116';
   ctx.fillRect(0, 0, cw, ch);
+  ctx.translate(state.cam.x, state.cam.y);
 
   // dot grid
   ctx.fillStyle = '#161d26';
@@ -804,7 +1097,9 @@ function openMenu(kind, id, clientX, clientY) {
   const m = els.menu;
   if (!m) return;
   menuOpen = { kind, id };
-  m.innerHTML = kind === 'node' ? nodeMenuHtml(nodeById(id)) : edgeMenuHtml(edgeById(id));
+  m.innerHTML = kind === 'node' ? nodeMenuHtml(nodeById(id))
+    : kind === 'bg' ? bgMenuHtml()
+    : edgeMenuHtml(edgeById(id));
   m.classList.add('show');
   // keep the menu on screen
   const r = m.getBoundingClientRect();
@@ -813,6 +1108,7 @@ function openMenu(kind, id, clientX, clientY) {
   m.style.left = Math.max(8, x) + 'px';
   m.style.top = Math.max(8, y) + 'px';
   if (kind === 'node') bindNodeMenu(nodeById(id));
+  else if (kind === 'bg') bindBgMenu();
   else bindEdgeMenu(edgeById(id));
 }
 
@@ -822,6 +1118,15 @@ function nodeMenuHtml(n) {
   const swatches = PALETTE.map(c =>
     `<button class="sw${n.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" title="${c}"></button>`
   ).join('');
+  const outs = outEdges(n.id);
+  const outRows = outs.length
+    ? outs.map(e => {
+        const to = nodeById(e.to);
+        const name = e.to === n.id ? '↻ 자기 자신' : '→ ' + esc(to ? to.label : e.to);
+        return `<div class="rowline"><span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>`
+          + `<input type="number" min="0" max="100" step="0.1" value="${edgePct(e)}" data-w="${esc(e.id)}"><span>%</span></div>`;
+      }).join('')
+    : '<div class="num" style="padding-top:0">나가는 연결 없음</div>';
   return `
     <div class="title">${esc(n.label)}${n.audio ? ' · ♪' : ''}</div>
     <button data-act="rename">이름 바꾸기<span class="key">F2</span></button>
@@ -830,6 +1135,14 @@ function nodeMenuHtml(n) {
     ${n.audio ? '<button data-act="clearsound">소리 제거</button>' : ''}
     <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">색</div>
     <div class="swatches">${swatches}</div>
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">확률 (%)</div>
+    ${outRows}
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">중력</div>
+    <div class="slider"><div class="lab"><span>gravity</span><b>${numOrDefault(n.gravity, 1).toFixed(1)}</b></div>
+      <input type="range" min="0" max="3" step="0.1" value="${numOrDefault(n.gravity, 1)}" data-slider="gravity"></div>
+    <div class="slider"><div class="lab"><span>repel</span><b>${numOrDefault(n.repel, 1).toFixed(1)}</b></div>
+      <input type="range" min="0" max="3" step="0.1" value="${numOrDefault(n.repel, 1)}" data-slider="repel"></div>
+    <button data-act="pin">${n.pinned ? '✓ 중력 무시 (고정)' : '중력 무시 (고정)'}</button>
     <button data-act="start">${isStart ? '✓ 시작 노드' : '여기서 시작'}</button>
     <button data-act="delete" class="danger">노드 삭제<span class="key">Del</span></button>
   `;
@@ -849,7 +1162,6 @@ function bindNodeMenu(n) {
       else if (act === 'start') {
         state.startMode = 'selected';
         state.startNodeId = n.id;
-        els.startMode.value = 'selected';
         scheduleSave();
         toast('시작 노드: ' + n.label);
       } else if (act === 'delete') deleteNode(n.id);
@@ -862,15 +1174,117 @@ function bindNodeMenu(n) {
       openMenu('node', n.id, parseFloat(m.style.left), parseFloat(m.style.top));
     };
   });
+  m.querySelectorAll('[data-slider]').forEach(input => {
+    input.oninput = () => {
+      const key = input.dataset.slider;
+      n[key] = clamp(round1(Number(input.value) || 0), 0, 3);
+      const lab = input.parentElement.querySelector('.lab b');
+      if (lab) lab.textContent = n[key].toFixed(1);
+      if (state.physics) physics.wake();
+      scheduleSave();
+    };
+  });
+  m.querySelectorAll('[data-w]').forEach(input => {
+    const e = edgeById(input.dataset.w);
+    if (!e) return;
+    input.oninput = () => {
+      setEdgeWeight(e, Number(input.value) || 0);
+      // other rows of the same node shift too, so repaint them in place
+      m.querySelectorAll('[data-w]').forEach(other => {
+        if (other === input) return;
+        const oe = edgeById(other.dataset.w);
+        if (oe) other.value = String(edgePct(oe));
+      });
+      scheduleSave();
+    };
+    input.onchange = () => { input.value = String(edgePct(e)); };
+  });
+  const pin = m.querySelector('[data-act=pin]');
+  if (pin) {
+    pin.onclick = () => {
+      n.pinned = !n.pinned;
+      if (n.pinned) {
+        const vel = physics.v.get(n.id);
+        if (vel) { vel.x = 0; vel.y = 0; }
+      }
+      scheduleSave();
+      openMenu('node', n.id, parseFloat(m.style.left), parseFloat(m.style.top));
+    };
+  }
+}
+
+function bgMenuHtml() {
+  const nodes = state.nodes.length;
+  return `
+    <div class="title">그래프${nodes ? ' · 노드 ' + nodes : ''}</div>
+    <button data-act="add">노드 추가</button>
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">워커</div>
+    <div class="rowline">
+      <input type="number" id="bgWorkers" min="1" max="9" step="1" value="${state.walkerCount}">
+      <span>명</span>
+      <button class="ghost" data-act="bugo">−</button>
+      <button class="ghost" data-act="wup">+</button>
+    </div>
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">시작</div>
+    <div class="seg">
+      <button data-act="mode-random" class="${state.startMode === 'random' ? 'on' : ''}">랜덤</button>
+      <button data-act="mode-selected" class="${state.startMode === 'selected' ? 'on' : ''}">정해진 노드</button>
+    </div>
+    <button data-act="physics" class="${state.physics ? 'on' : ''}">${state.physics ? '✓ 중력' : '중력'}</button>
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">파일</div>
+    <button data-act="export">파일로 저장</button>
+    <button data-act="import">불러오기</button>
+    <button data-act="clear" class="danger">비우기</button>
+  `;
+}
+
+function bindBgMenu() {
+  const m = els.menu;
+  const workers = m.querySelector('#bgWorkers');
+  const setWorkers = (v) => {
+    const next = clamp(Math.round(v) || 1, 1, 9);
+    if (next === state.walkerCount) { workers.value = String(state.walkerCount); return; }
+    state.walkerCount = next;
+    workers.value = String(next);
+    if (state.running) toast('워커 수는 다음 시작부터 적용됩니다');
+    scheduleSave();
+  };
+  workers.oninput = () => setWorkers(Number(workers.value));
+  workers.onchange = () => { workers.value = String(state.walkerCount); };
+  m.querySelector('[data-act=wup]').onclick = () => setWorkers(state.walkerCount + 1);
+  m.querySelector('[data-act=bugo]').onclick = () => setWorkers(state.walkerCount - 1);
+  m.querySelectorAll('[data-act]').forEach(b => {
+    const act = b.dataset.act;
+    if (act === 'wup' || act === 'bugo') return;
+    b.onclick = () => {
+      const at = { left: parseFloat(m.style.left), top: parseFloat(m.style.top) };
+      if (act === 'add') { closeMenu(); addNodeCentered(); }
+      else if (act === 'mode-random' || act === 'mode-selected') {
+        setStartMode(act === 'mode-selected' ? 'selected' : 'random');
+        openMenu('bg', null, at.left, at.top);
+      } else if (act === 'physics') {
+        state.physics = !state.physics;
+        if (state.physics) physics.wake(); else physics.stop();
+        syncPhysicsToggle();
+        scheduleSave();
+        openMenu('bg', null, at.left, at.top);
+      } else if (act === 'export') { closeMenu(); exportFile(); }
+      else if (act === 'import') { closeMenu(); els.importFile.value = ''; els.importFile.click(); }
+      else if (act === 'clear') { closeMenu(); clearGraph(); }
+    };
+  });
 }
 
 function edgeMenuHtml(e) {
   if (!e) return '';
   const a = nodeById(e.from), b = nodeById(e.to);
   const names = e.from === e.to ? a ? esc(a.label) + ' ↻' : '' : `${esc(a ? a.label : e.from)} → ${esc(b ? b.label : e.to)}`;
+  const siblings = outEdges(e.from).length;
   return `
-    <div class="title">${names} · ${Math.round(edgeProbability(e) * 100)}%</div>
-    <div class="num">가중치 <input type="number" min="0" step="0.1" value="${e.weight}"> 합 ${(outWeight(e.from) % 1 ? outWeight(e.from).toFixed(1) : outWeight(e.from))}</div>
+    <div class="title">${names}</div>
+    <div class="num">확률 <input type="number" min="0" max="100" step="0.1" value="${edgePct(e)}">% · 나머지 100%</div>
+    ${siblings <= 1 ? '<div class="num" style="padding-top:0">나가는 연결이 하나뿐이라 100% 고정입니다</div>' : ''}
+    <div class="num" style="padding-top:0">휠로 조절 (Shift = 10%)</div>
     <button data-act="delete" class="danger">연결 삭제<span class="key">Del</span></button>
   `;
 }
@@ -879,11 +1293,8 @@ function bindEdgeMenu(e) {
   if (!e) return;
   const m = els.menu;
   const num = m.querySelector('input[type=number]');
-  num.oninput = () => {
-    e.weight = Math.max(0, round1(Number(num.value) || 0));
-    scheduleSave();
-  };
-  num.onchange = () => { num.value = String(e.weight); };
+  num.oninput = () => { setEdgeWeight(e, Number(num.value) || 0); scheduleSave(); };
+  num.onchange = () => { num.value = String(edgePct(e)); };
   m.querySelector('[data-act=delete]').onclick = () => { closeMenu(); deleteEdge(e.id); };
 }
 
@@ -1014,11 +1425,61 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
+const ICON_PLAY = 'M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5z';
+const ICON_STOP = 'M7 6.5h10a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.5.5H7a.5.5 0 0 1-.5-.5V7a.5.5 0 0 1 .5-.5z';
+
 function syncControls() {
-  const b = els.btnRun;
+  const b = els.run;
   if (!b) return;
-  b.textContent = state.running ? '정지' : '시작';
   b.classList.toggle('running', state.running);
+  b.setAttribute('aria-label', state.running ? '정지' : '시작');
+  b.title = state.running ? '정지 (Space)' : '시작 (Space)';
+  const icon = b.querySelector('path');
+  if (icon) icon.setAttribute('d', state.running ? ICON_STOP : ICON_PLAY);
+}
+
+function syncPhysicsToggle() {
+  // the menu is the only place the toggle lives; repaint if it is open
+  if (menuOpen && menuOpen.kind === 'bg') {
+    const b = els.menu.querySelector('[data-act=physics]');
+    if (b) {
+      b.classList.toggle('on', state.physics);
+      b.textContent = state.physics ? '✓ 중력' : '중력';
+    }
+  }
+}
+
+function setStartMode(mode) {
+  state.startMode = mode === 'selected' ? 'selected' : 'random';
+  if (state.startMode === 'selected') {
+    const n = state.startNodeId ? nodeById(state.startNodeId) : null;
+    toast(n ? '시작 노드: ' + n.label : '노드를 우클릭해 "여기서 시작"을 고르세요');
+  }
+  scheduleSave();
+}
+
+function addNodeCentered() {
+  const x = clamp(cw / 2 - state.cam.x + (Math.random() - 0.5) * cw * 0.35, R, Math.max(R, cw - R));
+  const y = clamp(ch / 2 - state.cam.y + (Math.random() - 0.5) * ch * 0.35, R, Math.max(R, ch - R));
+  const n = addNodeAt(x, y);
+  setSelection({ type: 'node', id: n.id });
+  physics.wake();
+  scheduleSave();
+}
+
+function clearGraph() {
+  if (!state.nodes.length) return;
+  if (!confirm('그래프와 소리를 모두 지웁니다. 계속할까요?')) return;
+  stopWalkers();
+  state.nodes = [];
+  state.edges = [];
+  state.selection = null;
+  state.startNodeId = null;
+  state.cam.x = 0;
+  state.cam.y = 0;
+  closeMenu();
+  scheduleSave();
+  toast('새 그래프를 시작합니다');
 }
 
 function seedDemo() {
@@ -1065,9 +1526,11 @@ function bindUI() {
     if (drag) {
       const n = nodeById(drag.id);
       if (!n) return;
-      // keep the node grabbable inside the canvas
-      n.x = clamp(p.x - drag.ox, R, Math.max(R, cw - R));
-      n.y = clamp(p.y - drag.oy, R, Math.max(R, ch - R));
+      // keep the node grabbable inside the visible canvas (world coords)
+      const wx0 = -state.cam.x + R, wx1 = -state.cam.x + Math.max(R, cw - R);
+      const wy0 = -state.cam.y + R, wy1 = -state.cam.y + Math.max(R, ch - R);
+      n.x = clamp(p.x - drag.ox, wx0, wx1);
+      n.y = clamp(p.y - drag.oy, wy0, wy1);
       scheduleSave();
     }
   });
@@ -1084,7 +1547,7 @@ function bindUI() {
       linking = null;
       return;
     }
-    if (drag) { drag = null; }
+    if (drag) { drag = null; physics.wake(); }
   });
 
   els.cv.addEventListener('pointercancel', () => { drag = null; linking = null; });
@@ -1120,25 +1583,36 @@ function bindUI() {
       openMenu('edge', e.id, ev.clientX, ev.clientY);
       return;
     }
-    closeMenu();
     setSelection(null);
+    openMenu('bg', null, ev.clientX, ev.clientY);
   });
 
-  // wheel over an edge nudges its weight
+  // wheel over an edge nudges its probability by 1% (Shift = 10%)
   els.cv.addEventListener('wheel', (ev) => {
     const p = toGraph(ev);
     const e = hitEdge(p) || (menuOpen && menuOpen.kind === 'edge' ? edgeById(menuOpen.id) : null);
     if (!e) return;
     ev.preventDefault();
-    const step = ev.shiftKey ? 1 : 0.1;
+    const outs = outEdges(e.from);
+    if (outs.length <= 1) {
+      toast('나가는 연결이 하나뿐이라 100% 고정입니다');
+      return;
+    }
+    const step = ev.shiftKey ? 10 : 1;
     const dir = ev.deltaY > 0 ? -1 : 1;
-    e.weight = clamp(round1(e.weight + dir * step), 0, 99);
+    setEdgeWeight(e, round1(e.weight + dir * step));
     setSelection({ type: 'edge', id: e.id });
     if (menuOpen && menuOpen.kind === 'edge' && menuOpen.id === e.id) {
       const num = els.menu.querySelector('input[type=number]');
-      if (num) num.value = String(e.weight);
+      if (num) num.value = String(edgePct(e));
+    } else if (menuOpen && menuOpen.kind === 'node' && menuOpen.id === e.from) {
+      els.menu.querySelectorAll('[data-w]').forEach(other => {
+        const oe = edgeById(other.dataset.w);
+        if (oe) other.value = String(edgePct(oe));
+      });
     }
-    toast(`${e.weight % 1 ? e.weight.toFixed(1) : e.weight} · ${Math.round(edgeProbability(e) * 100)}%`);
+    toast(`이 간선 ${edgePct(e)}%`);
+    physics.wake();
     scheduleSave();
   }, { passive: false });
 
@@ -1177,53 +1651,9 @@ function bindUI() {
     }
   });
 
-  els.walkerCount.addEventListener('input', () => {
-    const next = clamp(parseInt(els.walkerCount.value, 10) || 1, 1, 9);
-    if (next === state.walkerCount) return;
-    state.walkerCount = next;
-    scheduleSave();
-    if (state.running) toast('워커 수는 다음 시작부터 적용됩니다');
-  });
-  els.walkerCount.addEventListener('change', () => {
-    els.walkerCount.value = String(state.walkerCount);
-  });
-
-  els.startMode.addEventListener('change', () => {
-    state.startMode = els.startMode.value === 'selected' ? 'selected' : 'random';
-    if (state.startMode === 'selected') {
-      const n = state.startNodeId ? nodeById(state.startNodeId) : null;
-      toast(n ? '시작 노드: ' + n.label : '노드를 클릭하고 "이 노드에서 시작"을 누르세요');
-    }
-    scheduleSave();
-  });
-
-  els.btnRun.addEventListener('click', () => {
+  els.run.addEventListener('click', () => {
     if (state.running) stopWalkers(); else startWalkers();
   });
-
-  els.btnAddNode.addEventListener('click', () => {
-    const x = clamp(cw / 2 + (Math.random() - 0.5) * cw * 0.4, 60, Math.max(60, cw - 60));
-    const y = clamp(ch / 2 + (Math.random() - 0.5) * ch * 0.4, 60, Math.max(60, ch - 60));
-    const n = addNodeAt(x, y);
-    setSelection({ type: 'node', id: n.id });
-    scheduleSave();
-  });
-
-  els.btnClear.addEventListener('click', () => {
-    if (!state.nodes.length) return;
-    if (!confirm('그래프와 소리를 모두 지웁니다. 계속할까요?')) return;
-    stopWalkers();
-    state.nodes = [];
-    state.edges = [];
-    state.selection = null;
-    state.startNodeId = null;
-    closeMenu();
-    scheduleSave();
-    toast('새 그래프를 시작합니다');
-  });
-
-  els.btnExport.addEventListener('click', exportFile);
-  els.btnImport.addEventListener('click', () => { els.importFile.value = ''; els.importFile.click(); });
 
   els.soundFile.addEventListener('change', () => {
     const file = els.soundFile.files[0];
@@ -1261,7 +1691,12 @@ function capture(ev) {
 
 function toGraph(ev) {
   const r = els.cv.getBoundingClientRect();
-  return { x: ev.clientX - r.left, y: ev.clientY - r.top };
+  return { x: ev.clientX - r.left - state.cam.x, y: ev.clientY - r.top - state.cam.y };
+}
+
+// screen-space position of a world point
+function toScreen(n) {
+  return { x: n.x + state.cam.x, y: n.y + state.cam.y };
 }
 
 // ---------------------------------------------------------------- self test
@@ -1301,19 +1736,132 @@ function runSelfTests() {
   });
   check('serialize/deserialize round trip', () => {
     const g = {
-      walkerCount: 5,
+      walkerCount: 5, physics: true,
       nodes: [
-        { id: 'a', x: 10, y: 20, label: 'A', audio: { name: 'a.wav', mime: 'audio/wav', data: 'data:audio/wav;base64,AAAA' } },
+        { id: 'a', x: 10, y: 20, label: 'A', gravity: 0.5, repel: 2, pinned: true, audio: { name: 'a.wav', mime: 'audio/wav', data: 'data:audio/wav;base64,AAAA' } },
         { id: 'b', x: 30, y: 40, label: 'B', audio: null },
       ],
-      edges: [{ id: 'e1', from: 'a', to: 'b', weight: 2.5 }, { id: 'e2', from: 'b', to: 'b', weight: 1 }],
+      edges: [{ id: 'e1', from: 'a', to: 'b', weight: 70 }, { id: 'e2', from: 'b', to: 'b', weight: 100 }],
     };
     const r = deserializeGraph(serializeGraph(g));
     return r.nodes.length === 2 && r.edges.length === 2 && r.walkerCount === 5 &&
+      r.physics === true &&
       r.nodes[0].audio.data === g.nodes[0].audio.data &&
       r.nodes[1].audio === null &&
-      r.edges[0].weight === 2.5 && r.edges[1].from === 'b' && r.edges[1].to === 'b';
+      r.nodes[0].gravity === 0.5 && r.nodes[0].repel === 2 && r.nodes[0].pinned === true &&
+      r.nodes[1].gravity === 1 && r.nodes[1].pinned === false &&
+      r.edges[0].weight === 100 && r.edges[1].from === 'b' && r.edges[1].to === 'b';
   });
+  // helpers for the percent model: build an isolated 3-edge node
+  const withFan = (weights, fn) => {
+    const savedN = state.nodes, savedE = state.edges, savedSel = state.selection;
+    state.nodes = [
+      { id: 'f', x: 0, y: 0, label: 'F', audio: null, color: null, gravity: 1, repel: 1, pinned: false },
+      { id: 'x', x: 100, y: 0, label: 'X', audio: null, color: null, gravity: 1, repel: 1, pinned: false },
+      { id: 'y', x: 0, y: 100, label: 'Y', audio: null, color: null, gravity: 1, repel: 1, pinned: false },
+      { id: 'z', x: -100, y: 0, label: 'Z', audio: null, color: null, gravity: 1, repel: 1, pinned: false },
+    ];
+    state.edges = weights.map((w, i) => ({ id: 'w' + i, from: 'f', to: ['x', 'y', 'z'][i], weight: w }));
+    let res;
+    try { res = fn(); } finally {
+      state.nodes = savedN; state.edges = savedE; state.selection = savedSel;
+    }
+    return res;
+  };
+  const sumOf = (fromId) => Math.round(outEdges(fromId).reduce((a, e) => a + e.weight, 0) * 10) / 10;
+
+  check('outgoing percentages always sum to 100', () =>
+    withFan([10, 10, 80], () => {
+      const e = state.edges[0];
+      setEdgeWeight(e, 50);
+      setEdgeWeight(state.edges[1], 0);
+      setEdgeWeight(state.edges[2], 100);
+      setEdgeWeight(state.edges[2], 3.3);
+      return sumOf('f') === 100;
+    }));
+
+  check('nudging one edge redistributes the rest by ratio', () =>
+    withFan([10, 10, 80], () => {
+      setEdgeWeight(state.edges[0], 20);
+      const [a, b, c] = state.edges.map(e => e.weight);
+      // the other two keep their 1:8 ratio over the remaining 80
+      return a === 20 && Math.abs(b - 80 * (1 / 9)) < 0.11 && Math.abs(c - 80 * (8 / 9)) < 0.11;
+    }));
+
+  check('reaching 100 zeroes the rest and remembers the ratio', () =>
+    withFan([10, 10, 80], () => {
+      const e = state.edges[0];
+      setEdgeWeight(e, 100);
+      const atMax = state.edges.map(x => x.weight);
+      setEdgeWeight(e, 50);   // comes back down: old 1:8 ratio restored
+      const back = state.edges.map(x => x.weight);
+      return atMax[0] === 100 && atMax[1] === 0 && atMax[2] === 0 &&
+        back[0] === 50 && Math.abs(back[1] - 50 / 9) < 0.11 && Math.abs(back[2] - 50 * 8 / 9) < 0.11;
+    }));
+
+  check('new edge takes 100/n, siblings keep their ratio', () =>
+    withFan([100], () => {
+      addEdge('f', 'y');
+      const ws = outEdges('f').map(e => e.weight).sort((a, b) => a - b);
+      return ws[0] === 50 && ws[1] === 50 && sumOf('f') === 100;
+    }));
+
+  check('third edge splits 100/3 then rebalances', () =>
+    withFan([100], () => {
+      addEdge('f', 'y');
+      addEdge('f', 'z');
+      const ws = outEdges('f').map(e => e.weight);
+      return ws.length === 3 && ws.every(w => Math.abs(w - 100 / 3) < 0.11) && sumOf('f') === 100;
+    }));
+
+  check('addEdge is idempotent for the same pair', () =>
+    withFan([100], () => {
+      const before = outEdges('f').length;
+      addEdge('f', 'x');
+      return outEdges('f').length === before;
+    }));
+
+  check('deleting an edge renormalizes to 100', () =>
+    withFan([25, 25, 50], () => {
+      deleteEdge('w1');
+      return sumOf('f') === 100 && outEdges('f').length === 2;
+    }));
+
+  // the sum-100 invariant means a node with edges can never be fully zeroed;
+  // the last removal spreads 100 back over the rest, so there is always a way out
+  check('zeroing every edge keeps the 100 invariant and a pickable next', () =>
+    withFan([34, 33, 33], () => {
+      for (const e of outEdges('f')) setEdgeWeight(e, 0);
+      // the last zeroing has no ratio left to scale, so it splits the 100 evenly
+      const ws = outEdges('f').map(e => e.weight).sort((a, b) => a - b);
+      return sumOf('f') === 100 && pickNext('f') !== null && ws[2] > 0;
+    }));
+
+  check('single outgoing edge is pinned at 100', () =>
+    withFan([100], () => {
+      const e = state.edges[0];
+      setEdgeWeight(e, 20);
+      return e.weight === 100;
+    }));
+
+  check('wheel-style nudges stay inside 0..100', () =>
+    withFan([50, 50], () => {
+      const e = state.edges[0];
+      for (let i = 0; i < 200; i++) setEdgeWeight(e, e.weight + 1);
+      const hi = e.weight;
+      for (let i = 0; i < 400; i++) setEdgeWeight(e, e.weight - 1);
+      return hi === 100 && e.weight === 0 && sumOf('f') === 100;
+    }));
+
+  check('deserialize converts legacy absolute weights to percentages', () => {
+    const r = deserializeGraph(JSON.stringify({
+      nodes: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }, { id: 'c', label: 'C' }],
+      edges: [{ from: 'a', to: 'b', weight: 3 }, { from: 'a', to: 'c', weight: 1 }],
+    }));
+    const out = r.edges.filter(e => e.from === 'a').map(e => e.weight).sort((x, y) => x - y);
+    return out[0] === 25 && out[1] === 75;
+  });
+
   check('deserialize drops dangling edges', () => {
     const r = deserializeGraph(JSON.stringify({
       nodes: [{ id: 'a', label: 'A' }],
@@ -1376,7 +1924,7 @@ function runSelfTests() {
 
 // ---------------------------------------------------------------- init
 (async function init() {
-  for (const id of ['cv', 'menu', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'btnClear', 'soundFile', 'importFile']) {
+  for (const id of ['cv', 'menu', 'toast', 'run', 'soundFile', 'importFile']) {
     els[id] = document.getElementById(id);
   }
   if (SELF_TEST) { runSelfTests(); return; }
@@ -1398,8 +1946,7 @@ function runSelfTests() {
     seedDemo();
     scheduleSave();
   }
-  els.walkerCount.value = String(state.walkerCount);
-  els.startMode.value = state.startMode;
+  fitToView();
   closeMenu();
   syncControls();
 
