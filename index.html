@@ -678,8 +678,9 @@ function stopWalkers() {
 // Placement tool, not a live effect: it settles and then stops.
 // Forces per node: gravity pulls toward the graph's centre of mass, repel
 // pushes overlapping nodes apart, edges act as springs, and pinned nodes
-// never move. The camera only follows while the simulation runs, and never
-// while a node is being dragged.
+// never move. Pinned means fixed on screen, so the camera stops following the
+// centre of mass as soon as one node is pinned: a moving camera would drag the
+// pinned node across the screen even though its world position never changes.
 const physics = {
   on: false,
   raf: null,
@@ -791,6 +792,7 @@ const physics = {
     return maxMove;
   },
 
+  // centre of mass of the whole graph (the camera's target)
   centre() {
     const nodes = state.nodes;
     if (!nodes.length) return null;
@@ -799,19 +801,25 @@ const physics = {
     return { x: cx / nodes.length, y: cy / nodes.length };
   },
 
+  // The camera follows the centre of mass only while nothing is pinned: with a
+  // pinned node on screen a pan would slide that node sideways, which is
+  // exactly what "fixed" must not do.
+  followCamera() {
+    if (!state.nodes.length) return false;
+    if (state.nodes.some(n => n.pinned)) return false;
+    const c = this.centre();
+    if (!c) return false;
+    state.cam.x += (cw / 2 - c.x - state.cam.x) * 0.06;
+    state.cam.y += (ch / 2 - c.y - state.cam.y) * 0.06;
+    return true;
+  },
+
   loop() {
     this.raf = requestAnimationFrame(() => {
       this.raf = null;
       if (!state.physics) { this.on = false; return; }
       const move = this.step();
-      // camera: keep the graph's centre of mass centred in the viewport
-      if (!drag) {
-        const c = this.centre();
-        if (c) {
-          state.cam.x += (cw / 2 - c.x - state.cam.x) * 0.06;
-          state.cam.y += (ch / 2 - c.y - state.cam.y) * 0.06;
-        }
-      }
+      if (!drag) this.followCamera();
       // settle: stop when everything is basically still
       if (move < 0.06) this.still++;
       else this.still = 0;
@@ -1926,6 +1934,42 @@ function runSelfTests() {
       highMove = run(REPEL_MAX);
     } finally { state.nodes = savedN; state.edges = savedE; physics.v.clear(); }
     return highMove > lowMove * 2;
+  });
+
+  check('pinned node stays put on screen while physics runs', () => {
+    const savedN = state.nodes, savedE = state.edges, savedCam = { x: state.cam.x, y: state.cam.y };
+    let stayed = false, cameraHeld = false;
+    try {
+      state.nodes = [
+        { id: 'p', x: 500, y: 300, label: 'P', gravity: 1, repel: 1, pinned: true },
+        { id: 'a', x: 100, y: 100, label: 'A', gravity: 1, repel: 1, pinned: false },
+        { id: 'b', x: 200, y: 140, label: 'B', gravity: 1, repel: 1, pinned: false },
+      ];
+      state.edges = [];
+      state.cam.x = 0; state.cam.y = 0;
+      const before = { x: state.nodes[0].x + state.cam.x, y: state.nodes[0].y + state.cam.y };
+      for (let i = 0; i < 60; i++) { physics.step(); physics.followCamera(); }
+      const after = { x: state.nodes[0].x + state.cam.x, y: state.nodes[0].y + state.cam.y };
+      stayed = Math.abs(after.x - before.x) < 1e-6 && Math.abs(after.y - before.y) < 1e-6;
+      cameraHeld = state.cam.x === 0 && state.cam.y === 0;
+    } finally {
+      state.nodes = savedN; state.edges = savedE; state.cam.x = savedCam.x; state.cam.y = savedCam.y;
+    }
+    return stayed && cameraHeld;
+  });
+
+  check('camera follows the centre of mass while nothing is pinned', () => {
+    const savedN = state.nodes, savedCam = { x: state.cam.x, y: state.cam.y };
+    let followed = false;
+    try {
+      state.nodes = [
+        { id: 'a', x: 100, y: 100, label: 'A', gravity: 1, repel: 1, pinned: false },
+        { id: 'b', x: 300, y: 200, label: 'B', gravity: 1, repel: 1, pinned: false },
+      ];
+      state.cam.x = 0; state.cam.y = 0;
+      followed = physics.followCamera() === true && (state.cam.x !== 0 || state.cam.y !== 0);
+    } finally { state.nodes = savedN; state.cam.x = savedCam.x; state.cam.y = savedCam.y; }
+    return followed;
   });
 
   check('dragged node is not moved by physics', () => {
