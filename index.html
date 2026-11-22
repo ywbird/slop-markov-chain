@@ -601,12 +601,17 @@ async function playNodeSound(w, node) {
   w.playingAt = null;
 }
 
-function animateWalker(w, from, to) {
-  return new Promise(res => {
-    const edge = state.edges.find(e => e.from === from.id && e.to === to.id);
-    w.anim = { from, to, t0: performance.now(), dur: 180, geom: edge ? edgeGeom(edge) : null };
-    setTimeout(() => { w.anim = null; res(); }, w.anim.dur + 10);
-  });
+// pure decoration: the walker token slides along the edge without holding up
+// the next sound, so with delay = 0 the next note starts immediately and the
+// slide overlaps it.
+function startWalkerAnim(w, from, to) {
+  const edge = state.edges.find(e => e.from === from.id && e.to === to.id);
+  // a very short sound can start the next slide mid-slide; blend from wherever
+  // the token is drawn right now instead of snapping back
+  const fromPos = w.anim && w.pos ? { x: w.pos.x, y: w.pos.y } : null;
+  const anim = { from, to, t0: performance.now(), dur: 180, geom: edge ? edgeGeom(edge) : null, fromPos };
+  w.anim = anim;
+  setTimeout(() => { if (w.anim === anim) { w.anim = null; w.pos = null; } }, anim.dur + 10);
 }
 
 async function runWalker(w) {
@@ -622,8 +627,9 @@ async function runWalker(w) {
     }
     const next = pickNext(cur.id);
     if (!next) { w.dead = true; checkAllDead(); break; }
-    await animateWalker(w, cur, next);
-    if (!(state.running && w.epoch === state.epoch)) break;
+    // the slide is decoration only — never wait for it, or delay = 0 would
+    // still cost the animation time before the next sound
+    startWalkerAnim(w, cur, next);
     w.nodeId = next.id;
   }
 }
@@ -1188,13 +1194,22 @@ function draw(now) {
     const t = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
     // follow the drawn edge: same quadratic the renderer uses
     const g = w.anim.geom || edgeGeom({ id: 'anim', from: a.id, to: b.id });
+    let x, y;
     if (g && !g.loop) {
       const u = 1 - t;
-      drawToken(ctx, u * u * g.sx + 2 * u * t * g.cx + t * t * g.ex,
-                      u * u * g.sy + 2 * u * t * g.cy + t * t * g.ey, w);
+      x = u * u * g.sx + 2 * u * t * g.cx + t * t * g.ex;
+      y = u * u * g.sy + 2 * u * t * g.cy + t * t * g.ey;
     } else {
-      drawToken(ctx, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, w);
+      x = a.x + (b.x - a.x) * t;
+      y = a.y + (b.y - a.y) * t;
     }
+    // started mid-slide (very short sound): ease from where the token was
+    if (w.anim.fromPos) {
+      x = w.anim.fromPos.x + (x - w.anim.fromPos.x) * t;
+      y = w.anim.fromPos.y + (y - w.anim.fromPos.y) * t;
+    }
+    w.pos = { x, y };
+    drawToken(ctx, x, y, w);
   }
 }
 
@@ -2169,6 +2184,21 @@ function runSelfTests() {
     const lo = deserializeGraph(JSON.stringify({ nodes: [], edges: [], delay: -4 })).delay;
     const none = deserializeGraph(JSON.stringify({ nodes: [], edges: [] })).delay;
     return ok && hi === DELAY_MAX && lo === 0 && none === 0;
+  });
+
+  // the slide must never be awaited: at delay = 0 the next sound starts at once,
+  // so the token is still moving while the next sound plays (overlap by design)
+  check('walker slide is decoration only (nothing to await)', () => {
+    const savedN = state.nodes, savedE = state.edges;
+    try {
+      state.nodes = [mkNode('a', 0, 0), mkNode('b', 300, 0)];
+      state.edges = [{ id: 'e', from: 'a', to: 'b', weight: 100 }];
+      const w = { i: 0, anim: null, pos: null };
+      const ret = startWalkerAnim(w, state.nodes[0], state.nodes[1]);
+      return ret === undefined && !!w.anim && w.anim.dur > 0;
+    } finally {
+      state.nodes = savedN; state.edges = savedE;
+    }
   });
 
   check('repel accepts values above the old 3 cap', () => {
