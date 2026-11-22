@@ -33,7 +33,9 @@
     border-radius:10px;padding:4px 9px;
   }
   input:focus,select:focus{outline:none;border-color:var(--accent)}
-  input[type=number]{width:64px}
+  input[type=number]{width:64px;-moz-appearance:textfield;appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   input[type=range]{width:100%;accent-color:var(--accent);padding:0;background:none;border:none}
   #run{
     position:fixed;left:20px;bottom:20px;z-index:20;
