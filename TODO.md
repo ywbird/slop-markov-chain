@@ -33,7 +33,9 @@
 - Editing: double-click empty canvas = node, Shift+drag node→node = edge (drop on itself = self-loop), drag = move, right-click node/edge = menu, Del = delete, audio file can be dropped straight onto a node.
 - Walkers: reach a node → play its clip → only then draw the next edge by weight. Independent epochs so stop/edit never leaves a walker mid-flight.
 - Autosave: IndexedDB (graph + audio). Export/import is the portable path.
-- Editing UI: no side panel. Node/edge context menus, double-click on a node for its sound, wheel on an edge for weight, inline rename. Node color comes from an 8-color palette and is stored per node (`color`).
+- Editing UI: no side panel and no top bar. Background / node / edge right-click menus, double-click on a node for its sound, wheel on an edge for probability, inline rename. Node color comes from an 8-color palette and is stored per node (`color`).
+- Weights are percentages (`weight` = % of a node's outgoing traffic); `setEdgeWeight` keeps each node's outgoing sum at exactly 100. Node fields `gravity`, `repel`, `pinned` drive the optional layout simulation (`physics` flag is saved).
+- Physics is a placement tool: it settles, stops, and saves the result. The camera follows the centre of mass only while it runs.
 
 ## Feedback
 
@@ -51,10 +53,22 @@
             - [x] 가중치 입력 (메뉴 안 숫자 입력 + 나가는 합계 표시)
         - [x] 간선 위에서 커서를 스크롤하면 가중치 조절
             - 휠 = ±0.1, Shift+휠 = ±1, 범위 0..99 (확인함)
-    - [ ] 간선 가중치를 각각 값을 갖는게 아니라 한 노드에서 나오는 합은 항상 100. 스크롤로 조정 하면 그 그 간선의 값만 올리고, 나머지는 기존 비율 유지. 10, 10, 80 이었고, 첫번째 간선을 조정했다면, 나머지 간선은 1:8 비율을 유지하는 방식
-    - [ ] 상단 바 제거. 배경 우클릭으로 해결.
-- [ ] toggle 버튼 추가: 중력
+    - [x] 간선 가중치를 각각 값을 갖는게 아니라 한 노드에서 나오는 합은 항상 100. 스크롤로 조정 하면 그 그 간선의 값만 올리고, 나머지는 기존 비율 유지. 10, 10, 80 이었고, 첫번째 간선을 조정했다면, 나머지 간선은 1:8 비율을 유지하는 방식
+        - 단위: 휠 1%p, Shift+휠 10%p (확인함)
+        - 100으로 올리면 나머지 0 + 직전 비율 저장, 내리면 복원 (확인함)
+        - 새 간선은 100/n, 나머지는 100*(n-1)/n을 기존 비율로 (확인함)
+        - 나가는 간선이 1개면 항상 100이라 휠 무시
+        - 저장 파일의 옛 절대 가중치는 불러올 때 퍼센트로 변환
+    - [x] 상단 바 제거. 배경 우클릭으로 해결.
+        - 배경 메뉴: 노드 추가 / 워커 수 / 시작 방식 / 중력 / 저장·불러오기·비우기
+        - 시작·정지는 좌하단 아이콘 버튼 (배경 없음, 확인함)
+- [x] toggle 버튼 추가: 중력
     - 노드끼리 gravity + repel 각 노드마다 그 값 지정 가능
+        - 배치 도구. 감쇠하며 정착한 뒤 스스로 멈춤 (확인함)
+        - 노드별 gravity·repel 슬라이더 0~3, 0.1 단위, 기본 1.0 (확인함)
+        - 간선은 전역 고정 세기의 스프링 (확인함)
+        - 노드 우클릭에 "중력 무시 (고정)" 핀 (확인함)
+        - 중력이 도는 동안만 카메라가 노드 무게중심을 따라가고, 드래그 중·정착 후엔 고정 (확인함)
 - [ ] 소리 끝나고 워커가 이동하기 전에 딜레이 옵션을 배경 우클릭 옵션에 넣기
 
 ### 미뤄둔 피드백.
