@@ -128,6 +128,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const round1 = (v) => Math.round(v * 10) / 10;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R = 27;                      // node radius (css px)
+const REPEL_MAX = 10;              // repel slider top end (was 3: too weak)
+const DELAY_MAX = 2;               // seconds of silence between sounds (0 = current behaviour)
 const numOrDefault = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
 const COLORS = ['#ffd166','#7aa7ff','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#ff9f6b','#8b9dff','#f2a0ff'];
 const SAVE_VERSION = 1;
@@ -145,6 +147,7 @@ const state = {
   running: false,
   epoch: 0,
   physics: false,        // gravity toggle
+  delay: 0,              // seconds of silence between a sound ending and the next move
   cam: { x: 0, y: 0 },   // world -> screen translation
 };
 
@@ -334,6 +337,7 @@ function serializeGraph(g = state) {
     startMode: g.startMode,
     startNodeId: g.startNodeId,
     physics: !!g.physics,
+    delay: round1(numOrDefault(g.delay, 0) * 100) / 100,
     nodes: g.nodes.map(n => ({
       id: n.id, x: round1(n.x), y: round1(n.y), label: n.label,
       color: n.color || null,
@@ -364,7 +368,7 @@ function deserializeGraph(text) {
       label: String((n && n.label) != null ? n.label : id),
       color: PALETTE.includes(n && n.color) ? n.color : null,
       gravity: clamp(numOrDefault(n && n.gravity, 1), 0, 3),
-      repel: clamp(numOrDefault(n && n.repel, 1), 0, 3),
+      repel: clamp(numOrDefault(n && n.repel, 1), 0, REPEL_MAX),
       pinned: !!(n && n.pinned),
       audio: a && a.data ? { name: String(a.name || 'sound'), mime: String(a.mime || ''), data: String(a.data) } : null,
     };
@@ -392,6 +396,7 @@ function deserializeGraph(text) {
     nodes, edges,
     walkerCount: clamp(Number(d.walkerCount) || 3, 1, 9),
     physics: !!d.physics,
+    delay: clamp(numOrDefault(Number(d.delay), 0), 0, DELAY_MAX),
     startMode: d.startMode === 'selected' ? 'selected' : 'random',
     startNodeId: nodes.some(n => n.id === d.startNodeId) ? d.startNodeId : null,
   };
@@ -419,6 +424,7 @@ function applyGraph(g) {
   state.startMode = g.startMode || state.startMode;
   state.startNodeId = g.startNodeId || null;
   state.physics = !!g.physics;
+  state.delay = clamp(numOrDefault(g.delay, 0), 0, DELAY_MAX);
   state.selection = null;
   state.walkers = [];
   fitToView();
@@ -604,6 +610,11 @@ async function runWalker(w) {
     if (!cur) { w.dead = true; checkAllDead(); break; }
     await playNodeSound(w, cur);
     if (!(state.running && w.epoch === state.epoch)) break;
+    if (state.delay > 0) {
+      // read the delay each step so a change during playback applies at once
+      await abortableSleep(state.delay * 1000, w.epoch);
+      if (!(state.running && w.epoch === state.epoch)) break;
+    }
     const next = pickNext(cur.id);
     if (!next) { w.dead = true; checkAllDead(); break; }
     await animateWalker(w, cur, next);
@@ -697,6 +708,11 @@ const physics = {
     return v;
   },
 
+  // a node the user is holding: pinned *and* dragged both mean "do not move it"
+  held(n) {
+    return !!n.pinned || (!!drag && drag.id === n.id);
+  },
+
   // one integration step; returns the largest displacement this frame
   step() {
     const nodes = state.nodes;
@@ -710,7 +726,7 @@ const physics = {
 
     // gravity toward the centre of mass
     for (const n of nodes) {
-      if (n.pinned) continue;
+      if (this.held(n)) continue;
       const g = numOrDefault(n.gravity, 1) * 0.012;
       if (!g) continue;
       fx.set(n.id, fx.get(n.id) + (cx - n.x) * g);
@@ -729,17 +745,19 @@ const physics = {
         const minD = R * 2.6;
         if (d2 < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 0.01; }
         const d = Math.sqrt(d2);
-        const push = Math.min(220, strength * 900 / Math.max(d2, 400));
+        // d^1.5 falloff instead of d^2 so higher repel values really push:
+        // at d = 100, repel 1 -> ~1px/step, repel 10 -> ~10px/step.
+        const push = Math.min(900, strength * 9000 / Math.max(Math.pow(d, 1.5), 240));
         if (d < minD) {
           // hard separation so labels never overlap
           const extra = (minD - d) * 0.22;
           const ux = dx / d, uy = dy / d;
-          if (!a.pinned) { fx.set(a.id, fx.get(a.id) - ux * (push + extra)); fy.set(a.id, fy.get(a.id) - uy * (push + extra)); }
-          if (!b.pinned) { fx.set(b.id, fx.get(b.id) + ux * (push + extra)); fy.set(b.id, fy.get(b.id) + uy * (push + extra)); }
+          if (!this.held(a)) { fx.set(a.id, fx.get(a.id) - ux * (push + extra)); fy.set(a.id, fy.get(a.id) - uy * (push + extra)); }
+          if (!this.held(b)) { fx.set(b.id, fx.get(b.id) + ux * (push + extra)); fy.set(b.id, fy.get(b.id) + uy * (push + extra)); }
         } else {
           const ux = dx / d, uy = dy / d;
-          if (!a.pinned) { fx.set(a.id, fx.get(a.id) - ux * push); fy.set(a.id, fy.get(a.id) - uy * push); }
-          if (!b.pinned) { fx.set(b.id, fx.get(b.id) + ux * push); fy.set(b.id, fy.get(b.id) + uy * push); }
+          if (!this.held(a)) { fx.set(a.id, fx.get(a.id) - ux * push); fy.set(a.id, fy.get(a.id) - uy * push); }
+          if (!this.held(b)) { fx.set(b.id, fx.get(b.id) + ux * push); fy.set(b.id, fy.get(b.id) + uy * push); }
         }
       }
     }
@@ -754,14 +772,14 @@ const physics = {
       const d = Math.hypot(dx, dy) || 1;
       const k = 0.010 * (d - rest) / d;
       const px = dx * k, py = dy * k;
-      if (!a.pinned) { fx.set(a.id, fx.get(a.id) + px); fy.set(a.id, fy.get(a.id) + py); }
-      if (!b.pinned) { fx.set(b.id, fx.get(b.id) - px); fy.set(b.id, fy.get(b.id) - py); }
+      if (!this.held(a)) { fx.set(a.id, fx.get(a.id) + px); fy.set(a.id, fy.get(a.id) + py); }
+      if (!this.held(b)) { fx.set(b.id, fx.get(b.id) - px); fy.set(b.id, fy.get(b.id) - py); }
     }
 
     let maxMove = 0;
     for (const n of nodes) {
       const vel = this.vel(n.id);
-      if (n.pinned) { vel.x = vel.y = 0; continue; }
+      if (this.held(n)) { vel.x = vel.y = 0; continue; }
       vel.x = (vel.x + fx.get(n.id)) * 0.82;
       vel.y = (vel.y + fy.get(n.id)) * 0.82;
       const sp = Math.hypot(vel.x, vel.y);
@@ -1118,15 +1136,6 @@ function nodeMenuHtml(n) {
   const swatches = PALETTE.map(c =>
     `<button class="sw${n.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" title="${c}"></button>`
   ).join('');
-  const outs = outEdges(n.id);
-  const outRows = outs.length
-    ? outs.map(e => {
-        const to = nodeById(e.to);
-        const name = e.to === n.id ? '↻ 자기 자신' : '→ ' + esc(to ? to.label : e.to);
-        return `<div class="rowline"><span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>`
-          + `<input type="number" min="0" max="100" step="0.1" value="${edgePct(e)}" data-w="${esc(e.id)}"><span>%</span></div>`;
-      }).join('')
-    : '<div class="num" style="padding-top:0">나가는 연결 없음</div>';
   return `
     <div class="title">${esc(n.label)}${n.audio ? ' · ♪' : ''}</div>
     <button data-act="rename">이름 바꾸기<span class="key">F2</span></button>
@@ -1135,13 +1144,11 @@ function nodeMenuHtml(n) {
     ${n.audio ? '<button data-act="clearsound">소리 제거</button>' : ''}
     <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">색</div>
     <div class="swatches">${swatches}</div>
-    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">확률 (%)</div>
-    ${outRows}
     <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">중력</div>
     <div class="slider"><div class="lab"><span>gravity</span><b>${numOrDefault(n.gravity, 1).toFixed(1)}</b></div>
       <input type="range" min="0" max="3" step="0.1" value="${numOrDefault(n.gravity, 1)}" data-slider="gravity"></div>
     <div class="slider"><div class="lab"><span>repel</span><b>${numOrDefault(n.repel, 1).toFixed(1)}</b></div>
-      <input type="range" min="0" max="3" step="0.1" value="${numOrDefault(n.repel, 1)}" data-slider="repel"></div>
+      <input type="range" min="0" max="${REPEL_MAX}" step="0.1" value="${numOrDefault(n.repel, 1)}" data-slider="repel"></div>
     <button data-act="pin">${n.pinned ? '✓ 중력 무시 (고정)' : '중력 무시 (고정)'}</button>
     <button data-act="start">${isStart ? '✓ 시작 노드' : '여기서 시작'}</button>
     <button data-act="delete" class="danger">노드 삭제<span class="key">Del</span></button>
@@ -1177,27 +1184,12 @@ function bindNodeMenu(n) {
   m.querySelectorAll('[data-slider]').forEach(input => {
     input.oninput = () => {
       const key = input.dataset.slider;
-      n[key] = clamp(round1(Number(input.value) || 0), 0, 3);
+      n[key] = clamp(round1(Number(input.value) || 0), 0, key === 'repel' ? REPEL_MAX : 3);
       const lab = input.parentElement.querySelector('.lab b');
       if (lab) lab.textContent = n[key].toFixed(1);
       if (state.physics) physics.wake();
       scheduleSave();
     };
-  });
-  m.querySelectorAll('[data-w]').forEach(input => {
-    const e = edgeById(input.dataset.w);
-    if (!e) return;
-    input.oninput = () => {
-      setEdgeWeight(e, Number(input.value) || 0);
-      // other rows of the same node shift too, so repaint them in place
-      m.querySelectorAll('[data-w]').forEach(other => {
-        if (other === input) return;
-        const oe = edgeById(other.dataset.w);
-        if (oe) other.value = String(edgePct(oe));
-      });
-      scheduleSave();
-    };
-    input.onchange = () => { input.value = String(edgePct(e)); };
   });
   const pin = m.querySelector('[data-act=pin]');
   if (pin) {
@@ -1230,6 +1222,9 @@ function bgMenuHtml() {
       <button data-act="mode-random" class="${state.startMode === 'random' ? 'on' : ''}">랜덤</button>
       <button data-act="mode-selected" class="${state.startMode === 'selected' ? 'on' : ''}">정해진 노드</button>
     </div>
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">소리 사이 딜레이</div>
+    <div class="slider"><div class="lab"><span>쉼</span><b>${state.delay.toFixed(2)}초</b></div>
+      <input type="range" min="0" max="${DELAY_MAX}" step="0.05" value="${state.delay}" data-delay></div>
     <button data-act="physics" class="${state.physics ? 'on' : ''}">${state.physics ? '✓ 중력' : '중력'}</button>
     <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">파일</div>
     <button data-act="export">파일로 저장</button>
@@ -1253,6 +1248,15 @@ function bindBgMenu() {
   workers.onchange = () => { workers.value = String(state.walkerCount); };
   m.querySelector('[data-act=wup]').onclick = () => setWorkers(state.walkerCount + 1);
   m.querySelector('[data-act=bugo]').onclick = () => setWorkers(state.walkerCount - 1);
+  const delayIn = m.querySelector('input[data-delay]');
+  if (delayIn) {
+    delayIn.oninput = () => {
+      state.delay = clamp(Math.round((Number(delayIn.value) || 0) * 100) / 100, 0, DELAY_MAX);
+      const lab = delayIn.parentElement.querySelector('.lab b');
+      if (lab) lab.textContent = state.delay.toFixed(2) + '초';
+      scheduleSave();
+    };
+  }
   m.querySelectorAll('[data-act]').forEach(b => {
     const act = b.dataset.act;
     if (act === 'wup' || act === 'bugo') return;
@@ -1279,12 +1283,16 @@ function edgeMenuHtml(e) {
   if (!e) return '';
   const a = nodeById(e.from), b = nodeById(e.to);
   const names = e.from === e.to ? a ? esc(a.label) + ' ↻' : '' : `${esc(a ? a.label : e.from)} → ${esc(b ? b.label : e.to)}`;
-  const siblings = outEdges(e.from).length;
+  const locked = outEdges(e.from).length <= 1;
+  const pct = edgePct(e);
   return `
     <div class="title">${names}</div>
-    <div class="num">확률 <input type="number" min="0" max="100" step="0.1" value="${edgePct(e)}">% · 나머지 100%</div>
-    ${siblings <= 1 ? '<div class="num" style="padding-top:0">나가는 연결이 하나뿐이라 100% 고정입니다</div>' : ''}
-    <div class="num" style="padding-top:0">휠로 조절 (Shift = 10%)</div>
+    <div class="slider">
+      <div class="lab"><span>확률</span><b>${pct}%</b></div>
+      <input type="range" min="0" max="100" step="1" value="${Math.round(pct)}" data-pct${locked ? ' disabled' : ''}>
+    </div>
+    ${locked ? '<div class="num" style="padding-top:0">나가는 연결이 하나뿐이라 100% 고정입니다</div>' : ''}
+    <div class="num" style="padding-top:0">나머지는 기존 비율대로 100%를 나눕니다 · 휠로도 조절</div>
     <button data-act="delete" class="danger">연결 삭제<span class="key">Del</span></button>
   `;
 }
@@ -1292,9 +1300,20 @@ function edgeMenuHtml(e) {
 function bindEdgeMenu(e) {
   if (!e) return;
   const m = els.menu;
-  const num = m.querySelector('input[type=number]');
-  num.oninput = () => { setEdgeWeight(e, Number(num.value) || 0); scheduleSave(); };
-  num.onchange = () => { num.value = String(edgePct(e)); };
+  const slider = m.querySelector('input[data-pct]');
+  if (slider) {
+    slider.oninput = () => {
+      setEdgeWeight(e, Number(slider.value) || 0);
+      const lab = m.querySelector('.lab b');
+      if (lab) lab.textContent = edgePct(e) + '%';
+      scheduleSave();
+    };
+    slider.onchange = () => {
+      slider.value = String(Math.round(edgePct(e)));
+      const lab = m.querySelector('.lab b');
+      if (lab) lab.textContent = edgePct(e) + '%';
+    };
+  }
   m.querySelector('[data-act=delete]').onclick = () => { closeMenu(); deleteEdge(e.id); };
 }
 
@@ -1603,13 +1622,11 @@ function bindUI() {
     setEdgeWeight(e, round1(e.weight + dir * step));
     setSelection({ type: 'edge', id: e.id });
     if (menuOpen && menuOpen.kind === 'edge' && menuOpen.id === e.id) {
-      const num = els.menu.querySelector('input[type=number]');
-      if (num) num.value = String(edgePct(e));
-    } else if (menuOpen && menuOpen.kind === 'node' && menuOpen.id === e.from) {
-      els.menu.querySelectorAll('[data-w]').forEach(other => {
-        const oe = edgeById(other.dataset.w);
-        if (oe) other.value = String(edgePct(oe));
-      });
+      // keep the open edge menu's slider in sync with the wheel
+      const slider = els.menu.querySelector('input[data-pct]');
+      if (slider) slider.value = String(Math.round(edgePct(e)));
+      const lab = els.menu.querySelector('.lab b');
+      if (lab) lab.textContent = edgePct(e) + '%';
     }
     toast(`이 간선 ${edgePct(e)}%`);
     physics.wake();
@@ -1874,6 +1891,60 @@ function runSelfTests() {
     try { deserializeGraph('{"nodes":5}'); } catch (e) { threw = true; }
     return threw;
   });
+  check('delay survives round trip and is clamped to 0..DELAY_MAX', () => {
+    const g = { delay: 0.35, walkerCount: 2, nodes: [], edges: [] };
+    const ok = deserializeGraph(serializeGraph(g)).delay === 0.35;
+    const hi = deserializeGraph(JSON.stringify({ nodes: [], edges: [], delay: 99 })).delay;
+    const lo = deserializeGraph(JSON.stringify({ nodes: [], edges: [], delay: -4 })).delay;
+    const none = deserializeGraph(JSON.stringify({ nodes: [], edges: [] })).delay;
+    return ok && hi === DELAY_MAX && lo === 0 && none === 0;
+  });
+
+  check('repel accepts values above the old 3 cap', () => {
+    const r = deserializeGraph(JSON.stringify({
+      nodes: [{ id: 'a', repel: 8 }, { id: 'b', repel: 99 }, { id: 'c', repel: -2 }], edges: [],
+    }));
+    return r.nodes[0].repel === 8 && r.nodes[1].repel === REPEL_MAX && r.nodes[2].repel === 0;
+  });
+
+  check('high repel pushes harder than low repel', () => {
+    const savedN = state.nodes, savedE = state.edges;
+    let lowMove = 0, highMove = 0;
+    try {
+      const run = (repel) => {
+        state.nodes = [
+          { id: 'a', x: 0, y: 0, label: 'A', gravity: 0, repel, pinned: false },
+          { id: 'b', x: R * 15, y: 0, label: 'B', gravity: 0, repel, pinned: false },
+        ];
+        state.edges = [];
+        physics.v.clear();
+        // one raw step, far enough apart that the speed cap does not hide the force
+        physics.step();
+        return Math.abs(state.nodes[1].x - R * 15);
+      };
+      lowMove = run(1);
+      highMove = run(REPEL_MAX);
+    } finally { state.nodes = savedN; state.edges = savedE; physics.v.clear(); }
+    return highMove > lowMove * 2;
+  });
+
+  check('dragged node is not moved by physics', () => {
+    const savedN = state.nodes, savedE = state.edges, savedDrag = drag;
+    let moved = true;
+    try {
+      state.nodes = [
+        { id: 'a', x: 0, y: 0, label: 'A', gravity: 1, repel: 1, pinned: false },
+        { id: 'b', x: R * 2.2, y: 0, label: 'B', gravity: 1, repel: 1, pinned: false },
+      ];
+      state.edges = [];
+      physics.v.clear();
+      drag = { kind: 'node', id: 'b', ox: 0, oy: 0 };
+      physics.step();
+      moved = Math.abs(state.nodes[1].x - R * 2.2) > 1e-9 || Math.abs(state.nodes[1].y) > 1e-9;
+    } finally { state.nodes = savedN; state.edges = savedE; drag = savedDrag; physics.v.clear(); }
+    return moved === false;
+  });
+
   check('deserialize clamps walkerCount', () => {
     const r = deserializeGraph(JSON.stringify({ nodes: [], edges: [], walkerCount: 99 }));
     return r.walkerCount === 9;
@@ -1950,7 +2021,7 @@ function runSelfTests() {
   closeMenu();
   syncControls();
 
-  window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb };
+  window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb, physics, REPEL_MAX, DELAY_MAX };
 })();
 
 window.addEventListener('error', (e) => {
