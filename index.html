@@ -91,6 +91,7 @@
   <button id="btnRun" class="primary">시작</button>
   <div class="sep"></div>
   <button id="btnAddNode">노드 추가</button>
+  <button id="btnClear" class="danger">비우기</button>
   <button id="btnExport">파일로 저장</button>
   <button id="btnImport">불러오기</button>
   <span class="hint">Shift+드래그: 연결 · 더블클릭: 노드 · Del: 삭제 · Space: 시작/정지</span>
@@ -327,6 +328,7 @@ const audio = {
   ctx: null,
   master: null,
   cache: new Map(),     // dataUrl -> AudioBuffer
+  bad: new Set(),       // dataUrls that failed to decode
   waiting: new Set(),   // started BufferSources
   ensure() {
     if (this.ctx) return this.ctx;
@@ -346,11 +348,17 @@ const audio = {
     if (!node.audio) return null;
     const key = node.audio.data;
     if (this.cache.has(key)) return this.cache.get(key);
+    if (this.bad.has(key)) return null;   // already known broken: stay silent
     this.ensure();
-    const buf = await this.ctx.decodeAudioData(b64ToBuffer(key));
-    if (this.cache.size >= 64) this.cache.clear();
-    this.cache.set(key, buf);
-    return buf;
+    try {
+      const buf = await this.ctx.decodeAudioData(b64ToBuffer(key));
+      if (this.cache.size >= 64) this.cache.clear();
+      this.cache.set(key, buf);
+      return buf;
+    } catch (e) {
+      this.bad.add(key);
+      throw e;
+    }
   },
   play(buf) {
     const c = this.ensure();
@@ -388,7 +396,12 @@ async function playNodeSound(w, node) {
     buf = await audio.buffer(node);
   } catch (e) {
     console.warn('decode failed', e);
-    toast('소리를 재생할 수 없습니다: ' + (node.audio ? node.audio.name : node.label));
+    if (!playNodeSound.warned) playNodeSound.warned = new Set();
+    const key = node.audio ? node.audio.name : node.label;
+    if (!playNodeSound.warned.has(key)) {
+      playNodeSound.warned.add(key);
+      toast('소리를 재생할 수 없습니다: ' + key);
+    }
     buf = null;
   }
   if (epoch !== state.epoch || !state.running) return;
@@ -396,7 +409,12 @@ async function playNodeSound(w, node) {
   try { await audio.resume(); } catch (e) {}
   if (epoch !== state.epoch || !state.running) return;
   w.playingAt = node.id;
-  await audio.play(buf);
+  try {
+    await audio.play(buf);
+  } catch (e) {
+    console.warn('play failed', e);
+    await abortableSleep(320, epoch);
+  }
   w.playingAt = null;
 }
 
@@ -1016,8 +1034,11 @@ function bindUI() {
   });
 
   els.walkerCount.addEventListener('input', () => {
-    state.walkerCount = clamp(parseInt(els.walkerCount.value, 10) || 1, 1, 9);
+    const next = clamp(parseInt(els.walkerCount.value, 10) || 1, 1, 9);
+    if (next === state.walkerCount) return;
+    state.walkerCount = next;
     scheduleSave();
+    if (state.running) toast('워커 수는 다음 시작부터 적용됩니다');
   });
   els.walkerCount.addEventListener('change', () => {
     els.walkerCount.value = String(state.walkerCount);
@@ -1043,6 +1064,19 @@ function bindUI() {
     const n = addNodeAt(x, y, 'N' + (used.length + 1));
     setSelection({ type: 'node', id: n.id });
     scheduleSave();
+  });
+
+  els.btnClear.addEventListener('click', () => {
+    if (!state.nodes.length) return;
+    if (!confirm('그래프와 소리를 모두 지웁니다. 계속할까요?')) return;
+    stopWalkers();
+    state.nodes = [];
+    state.edges = [];
+    state.selection = null;
+    state.startNodeId = null;
+    scheduleSave();
+    rebuildPanel();
+    toast('새 그래프를 시작합니다');
   });
 
   els.btnExport.addEventListener('click', exportFile);
@@ -1134,16 +1168,18 @@ function runSelfTests() {
     return r.walkerCount === 9;
   });
   check('startMode/startNodeId survive round trip', () => {
-    const savedMode = state.startMode, savedStart = state.startNodeId;
-    state.startMode = 'selected';
-    state.startNodeId = state.nodes.length ? state.nodes[0].id : null;
-    const t = serializeGraph();
-    state.startMode = savedMode;
-    state.startNodeId = savedStart;
-    const r = deserializeGraph(t);
-    return r.startMode === 'selected' &&
-      r.startNodeId === (state.nodes.length ? state.nodes[0].id : null) &&
+    const g = { startMode: 'selected', startNodeId: 'a', walkerCount: 2,
+      nodes: [{ id: 'a', x: 0, y: 0, label: 'A', audio: null }], edges: [] };
+    const r = deserializeGraph(serializeGraph(g));
+    return r.startMode === 'selected' && r.startNodeId === 'a' &&
       deserializeGraph(JSON.stringify({ nodes: [], edges: [] })).startMode === 'random';
+  });
+  check('duplicate node ids are rejected', () => {
+    let threw = false;
+    try {
+      deserializeGraph(JSON.stringify({ nodes: [{ id: 'a' }, { id: 'a' }], edges: [] }));
+    } catch (e) { threw = true; }
+    return threw;
   });
   check('stale startNodeId is dropped', () => {
     const r = deserializeGraph(JSON.stringify({
@@ -1169,7 +1205,7 @@ function runSelfTests() {
 
 // ---------------------------------------------------------------- init
 (async function init() {
-  for (const id of ['cv', 'panel', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'soundFile', 'importFile']) {
+  for (const id of ['cv', 'panel', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'btnClear', 'soundFile', 'importFile']) {
     els[id] = document.getElementById(id);
   }
   if (SELF_TEST) { runSelfTests(); return; }
@@ -1179,13 +1215,16 @@ function runSelfTests() {
   rebuildPanel();
   requestAnimationFrame(frame);
 
+  let restored = false;
   try {
     const saved = await idb.get('graph');
-    if (saved) applyGraph(deserializeGraph(saved));
+    if (saved) { applyGraph(deserializeGraph(saved)); restored = true; }
   } catch (e) {
     console.warn('load failed', e);
   }
-  if (!state.nodes.length) {
+  // only seed the demo graph when there is nothing stored at all, so an
+  // intentionally emptied graph stays empty across reloads
+  if (!restored) {
     seedDemo();
     scheduleSave();
   }
