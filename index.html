@@ -134,6 +134,7 @@ const state = {
 const els = {};
 let cw = 1, ch = 1, dpr = 1;
 let drag = null;      // {kind:'node', id, ox, oy}
+let soundTargetId = null;   // node awaiting a file-picker result
 let linking = null;   // {from, x, y}
 
 // ---------------------------------------------------------------- model
@@ -768,6 +769,7 @@ function defaultPanelHtml() {
       <li>드래그 — 노드 이동</li>
       <li>연결 클릭 — 가중치(확률) 조절</li>
       <li>Del — 선택 삭제</li>
+      <li>오디오 파일 드롭 — 노드에 소리 지정</li>
     </ul>
     <h3>동작 방식</h3>
     <p class="muted">워커는 노드에 도착해 그 노드의 소리를 재생하고, 소리가 끝나면 가중치에 따라 다음 노드로 이동합니다. 여러 워커가 동시에 소리를 겹쳐 냅니다.</p>
@@ -809,7 +811,7 @@ function bindNodePanel(n) {
   labelInput.onchange = () => { rebuildPanel(); };
   p.querySelector('#pnPick').onclick = () => {
     els.soundFile.value = '';
-    els.soundFile._target = n.id;
+    soundTargetId = n.id;
     els.soundFile.click();
   };
   const prev = p.querySelector('#pnPreview');
@@ -876,10 +878,17 @@ async function previewSound(n) {
   }
 }
 
-function onSoundFile(file) {
-  const id = els.soundFile._target;
+const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
+
+function onSoundFile(file, targetId) {
+  const id = targetId || soundTargetId;
+  soundTargetId = null;   // one-shot: never leak to the next change event
   const n = id ? nodeById(id) : null;
   if (!n || !file) return;
+  if (file.size > MAX_AUDIO_BYTES) {
+    toast('소리 파일이 너무 큽니다 (8MB 이하) — 짧은 클립을 쓰세요');
+    return;
+  }
   const reader = new FileReader();
   reader.onload = () => {
     n.audio = { name: file.name, mime: file.type || '', data: String(reader.result) };
@@ -988,8 +997,9 @@ function bindUI() {
     if (drag) {
       const n = nodeById(drag.id);
       if (!n) return;
-      n.x = p.x - drag.ox;
-      n.y = p.y - drag.oy;
+      // keep the node grabbable inside the canvas
+      n.x = clamp(p.x - drag.ox, R, Math.max(R, cw - R));
+      n.y = clamp(p.y - drag.oy, R, Math.max(R, ch - R));
       scheduleSave();
     }
   });
@@ -1082,7 +1092,27 @@ function bindUI() {
   els.btnExport.addEventListener('click', exportFile);
   els.btnImport.addEventListener('click', () => { els.importFile.value = ''; els.importFile.click(); });
 
-  els.soundFile.addEventListener('change', () => onSoundFile(els.soundFile.files[0]));
+  els.soundFile.addEventListener('change', () => {
+    const file = els.soundFile.files[0];
+    els.soundFile.value = '';
+    onSoundFile(file);
+  });
+
+  els.cv.addEventListener('dragover', (ev) => {
+    if (ev.dataTransfer && Array.from(ev.dataTransfer.types).includes('Files')) {
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  els.cv.addEventListener('drop', (ev) => {
+    const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!file) return;
+    ev.preventDefault();
+    const n = hitNode(toGraph(ev));
+    if (!n) { toast('소리를 넣을 노드 위에 떨어뜨리세요'); return; }
+    setSelection({ type: 'node', id: n.id });
+    onSoundFile(file, n.id);
+  });
   els.importFile.addEventListener('change', () => importFile(els.importFile.files[0]));
 
   const flush = () => { if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; saveNow(); } };
