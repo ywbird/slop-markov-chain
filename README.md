@@ -1,3 +1,14 @@
+<!-- Official 0rwx logos from https://0rwx.com/ (CC0 / public domain). -->
+<p>
+  <a href="https://0rwx.com/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/AI-X-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="docs/assets/AI-X-light.svg">
+      <img src="docs/assets/AI-X-light.svg" alt="AI:X — AI가 만든 프로젝트 (0rwx)" width="64" height="64" align="right">
+    </picture>
+  </a>
+</p>
+
 # Markov Chain Sound Graph
 
 마르코프 체인으로 소리를 잇는 장난감. 노드마다 짧은 소리 클립을 넣고 간선에 확률을 주면, 워커들이 그래프를 돌아다니며 소리를 재생한다.
