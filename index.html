@@ -23,7 +23,6 @@
   header h1{font-size:14px;font-weight:600;letter-spacing:.02em;margin:0 8px 0 0;color:#eaf2fb}
   header .sep{width:1px;height:20px;background:var(--line2)}
   header label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
-  header .hint{margin-left:auto;color:var(--muted);font-size:12px}
   button{
     font:inherit;font-size:13px;color:var(--text);background:#1a222c;border:1px solid var(--line2);
     border-radius:6px;padding:5px 10px;cursor:pointer;
@@ -41,31 +40,43 @@
   input:focus,select:focus{outline:none;border-color:var(--accent)}
   input[type=number]{width:64px}
   input[type=range]{width:100%;accent-color:var(--accent);padding:0;background:none;border:none}
-  main{flex:1;display:flex;min-height:0}
-  canvas{flex:1;display:block;min-width:0;touch-action:none;cursor:default}
-  aside{
-    width:288px;flex:0 0 288px;border-left:1px solid var(--line);background:var(--panel);
-    padding:14px;overflow-y:auto;
+  main{flex:1;position:relative;min-height:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
+  #menu{
+    position:fixed;z-index:50;min-width:168px;padding:6px;
+    background:#141b24;border:1px solid var(--line2);border-radius:10px;
+    box-shadow:0 12px 32px rgba(0,0,0,.55);display:none;
   }
-  aside h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
-  aside h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 8px}
-  aside .field{display:flex;align-items:center;gap:8px;margin:0 0 10px}
-  aside .field > span{color:var(--muted);font-size:12px;min-width:48px}
-  aside .field input[type=text]{flex:1;min-width:0}
-  aside .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
-  aside .muted{color:var(--muted);font-size:12px}
-  aside ul{padding-left:16px;margin:8px 0;color:var(--muted);font-size:12px}
-  aside li{margin:3px 0}
-  .sound{color:#b7c6d8;font-size:12px;word-break:break-all;margin:0 0 10px}
-  .sound.none{color:var(--muted)}
-  .row{
-    display:flex;justify-content:space-between;gap:8px;align-items:center;
-    padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin:0 0 6px;cursor:pointer;
-    background:#0f151d;font-size:12px;
+  #menu.show{display:block}
+  #menu .title{
+    padding:4px 8px 7px;margin-bottom:4px;border-bottom:1px solid var(--line);
+    color:var(--muted);font-size:11px;letter-spacing:.04em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;
   }
-  .row:hover{border-color:#3a4859;background:#141c26}
-  .row .p{color:var(--muted);font-variant-numeric:tabular-nums}
-  .stat{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;margin:6px 0 10px}
+  #menu button{
+    display:flex;width:100%;align-items:center;gap:8px;text-align:left;
+    background:none;border:1px solid transparent;border-radius:6px;padding:6px 8px;font-size:13px;
+  }
+  #menu button:hover{background:#1e2833;border-color:var(--line2)}
+  #menu button.danger:hover{background:#2a1a1a;border-color:#4a2a2a}
+  #menu .key{margin-left:auto;color:var(--muted);font-size:11px}
+  #menu .swatches{display:flex;gap:6px;padding:2px 8px 8px;flex-wrap:wrap}
+  #menu .sw{
+    width:20px;height:20px;border-radius:50%;cursor:pointer;padding:0;
+    border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+  }
+  #menu .sw:hover{border-color:#e8f1fb}
+  #menu .sw.on{border-color:#e8f1fb;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 0 0 2px rgba(102,217,196,.35)}
+  #menu .num{display:flex;align-items:center;gap:8px;padding:2px 8px 8px;font-size:12px;color:var(--muted)}
+  #menu .num input{width:70px}
+  #hint{
+    position:fixed;left:14px;bottom:12px;z-index:10;pointer-events:none;
+    color:var(--muted);font-size:12px;line-height:1.7;
+    padding:6px 10px;border-radius:8px;background:rgba(14,17,22,.72);
+    transition:opacity .5s;
+  }
+  #hint.fade{opacity:0}
+  #hint b{color:#a9b8c9;font-weight:600}
   #toast{
     position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);
     background:#1b2430;border:1px solid var(--line2);color:var(--text);
@@ -94,12 +105,15 @@
   <button id="btnClear" class="danger">비우기</button>
   <button id="btnExport">파일로 저장</button>
   <button id="btnImport">불러오기</button>
-  <span class="hint">Shift+드래그: 연결 · 더블클릭: 노드 · Del: 삭제 · Space: 시작/정지</span>
 </header>
 <main>
   <canvas id="cv"></canvas>
-  <aside id="panel"></aside>
 </main>
+<div id="hint">
+  <b>더블클릭</b> 빈 곳=노드 추가 · 노드=소리 선택 &nbsp;|&nbsp; <b>우클릭</b> 노드·간선 메뉴 &nbsp;|&nbsp;
+  <b>Shift+드래그</b> 연결 &nbsp;|&nbsp; <b>간선 위 휠</b> 가중치 (Shift=1씩) &nbsp;|&nbsp; <b>Del</b> 삭제 &nbsp;|&nbsp; <b>Space</b> 시작/정지
+</div>
+<div id="menu" role="menu"></div>
 <input id="soundFile" type="file" accept="audio/*" hidden>
 <input id="importFile" type="file" accept=".json,application/json" hidden>
 <div id="toast"></div>
@@ -135,6 +149,7 @@ let cw = 1, ch = 1, dpr = 1;
 let drag = null;      // {kind:'node', id, ox, oy}
 let soundTargetId = null;   // node awaiting a file-picker result
 let linking = null;   // {from, x, y}
+let menuOpen = null;  // {kind:'node'|'edge', id}
 
 // ---------------------------------------------------------------- model
 const nodeById = (id) => state.nodes.find(n => n.id === id) || null;
@@ -169,7 +184,7 @@ function nextNodeName() {
 }
 
 function addNodeAt(x, y, label) {
-  const n = { id: uid('n'), x, y, label: label || nextNodeName(), audio: null };
+  const n = { id: uid('n'), x, y, label: label || nextNodeName(), audio: null, color: null };
   state.nodes.push(n);
   return n;
 }
@@ -186,14 +201,14 @@ function deleteNode(id) {
   state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
   if (state.startNodeId === id) state.startNodeId = null;
   state.selection = null;
+  closeMenu();
   scheduleSave();
-  rebuildPanel();
 }
 function deleteEdge(id) {
   state.edges = state.edges.filter(e => e.id !== id);
   state.selection = null;
+  closeMenu();
   scheduleSave();
-  rebuildPanel();
 }
 function deleteSelection() {
   const s = state.selection;
@@ -212,6 +227,7 @@ function serializeGraph(g = state) {
     startNodeId: g.startNodeId,
     nodes: g.nodes.map(n => ({
       id: n.id, x: round1(n.x), y: round1(n.y), label: n.label,
+      color: n.color || null,
       audio: n.audio ? { name: n.audio.name, mime: n.audio.mime, data: n.audio.data } : null,
     })),
     edges: g.edges.map(e => ({ id: e.id, from: e.from, to: e.to, weight: e.weight })),
@@ -234,6 +250,7 @@ function deserializeGraph(text) {
       x: Number(n && n.x) || 0,
       y: Number(n && n.y) || 0,
       label: String((n && n.label) != null ? n.label : id),
+      color: PALETTE.includes(n && n.color) ? n.color : null,
       audio: a && a.data ? { name: String(a.name || 'sound'), mime: String(a.mime || ''), data: String(a.data) } : null,
     };
   });
@@ -266,7 +283,7 @@ function applyGraph(g) {
   state.walkers = [];
   els.walkerCount.value = String(state.walkerCount);
   els.startMode.value = state.startMode;
-  rebuildPanel();
+  closeMenu();
   syncControls();
 }
 
@@ -306,8 +323,17 @@ const idb = {
 
 let saveTimer = null;
 let saveFailed = false;
+let hintFaded = false;
+function fadeHint() {
+  if (hintFaded || SELF_TEST) return;
+  hintFaded = true;
+  const h = document.getElementById('hint');
+  if (h) h.classList.add('fade');
+}
+
 function scheduleSave() {
   if (SELF_TEST) return;
+  fadeHint();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 400);
 }
@@ -558,10 +584,13 @@ function resize() {
   els.cv.height = Math.round(ch * dpr);
 }
 
-const short = (s, n = 9) => {
-  s = String(s);
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
-};
+// '#rrggbb' + alpha -> rgba()
+function withAlpha(hex, a) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return 'rgba(255,255,255,' + a + ')';
+  const v = parseInt(m[1], 16);
+  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
+}
 
 // draw a node label sized to fit inside the circle
 function drawFitText(ctx, text, x, y, maxW, maxSize) {
@@ -674,13 +703,13 @@ function draw(now) {
     const isSel = sel && sel.type === 'node' && sel.id === n.id;
     ctx.beginPath();
     ctx.arc(n.x, n.y, R, 0, Math.PI * 2);
-    ctx.fillStyle = n.audio ? '#1b2530' : '#151b23';
+    ctx.fillStyle = n.color ? withAlpha(n.color, 0.22) : (n.audio ? '#1b2530' : '#151b23');
     ctx.fill();
-    ctx.lineWidth = isSel ? 3 : 1.5;
-    ctx.strokeStyle = isSel ? '#66d9c4' : '#2c3746';
+    ctx.lineWidth = isSel ? 3 : (n.color ? 2 : 1.5);
+    ctx.strokeStyle = isSel ? '#66d9c4' : (n.color || '#2c3746');
     ctx.stroke();
 
-    ctx.fillStyle = '#d8e0ea';
+    ctx.fillStyle = NODE_INK;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     drawFitText(ctx, n.label, n.x, n.y, R * 2 - 10, 13);
@@ -690,10 +719,10 @@ function draw(now) {
       ctx.arc(n.x + R * 0.72, n.y - R * 0.72, 8, 0, Math.PI * 2);
       ctx.fillStyle = '#101820';
       ctx.fill();
-      ctx.strokeStyle = '#3a4a5c';
+      ctx.strokeStyle = n.color || '#3a4a5c';
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.fillStyle = '#8fdccd';
+      ctx.fillStyle = n.color || '#8fdccd';
       ctx.font = '10px sans-serif';
       ctx.fillText('♪', n.x + R * 0.72, n.y - R * 0.7);
     }
@@ -755,135 +784,155 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// ---------------------------------------------------------------- panel
+// ---------------------------------------------------------------- context menu
+const PALETTE = ['#66d9c4','#7aa7ff','#ffb86b','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#f2d04b'];
+const NODE_INK = '#d8e0ea';
+
 function setSelection(sel) {
   state.selection = sel;
-  rebuildPanel();
 }
 
-function rebuildPanel() {
-  const p = els.panel;
-  if (!p) return;
-  const s = state.selection;
-  if (!s) { p.innerHTML = defaultPanelHtml(); return; }
-  if (s.type === 'node') {
-    const n = nodeById(s.id);
-    if (!n) { state.selection = null; rebuildPanel(); return; }
-    p.innerHTML = nodePanelHtml(n);
-    bindNodePanel(n);
-  } else {
-    const e = edgeById(s.id);
-    if (!e) { state.selection = null; rebuildPanel(); return; }
-    p.innerHTML = edgePanelHtml(e);
-    bindEdgePanel(e);
-  }
+function closeMenu() {
+  const m = els.menu;
+  if (!m) return;
+  m.classList.remove('show');
+  m.innerHTML = '';
+  menuOpen = null;
 }
 
-function defaultPanelHtml() {
-  return `
-    <h2>사용법</h2>
-    <ul>
-      <li>더블클릭 — 노드 추가</li>
-      <li>Shift+드래그 — 노드에서 노드로 연결</li>
-      <li>드래그 — 노드 이동</li>
-      <li>연결 클릭 — 가중치(확률) 조절</li>
-      <li>Del — 선택 삭제</li>
-      <li>오디오 파일 드롭 — 노드에 소리 지정</li>
-    </ul>
-    <h3>동작 방식</h3>
-    <p class="muted">워커는 노드에 도착해 그 노드의 소리를 재생하고, 소리가 끝나면 가중치에 따라 다음 노드로 이동합니다. 여러 워커가 동시에 소리를 겹쳐 냅니다.</p>
-    <h3>저장</h3>
-    <p class="muted">편집 내용과 소리는 브라우저(IndexedDB)에 자동 저장됩니다. 다른 컴퓨터로 옮길 때는 "파일로 저장"으로 JSON 하나를 내보내세요.</p>
-  `;
+function openMenu(kind, id, clientX, clientY) {
+  const m = els.menu;
+  if (!m) return;
+  menuOpen = { kind, id };
+  m.innerHTML = kind === 'node' ? nodeMenuHtml(nodeById(id)) : edgeMenuHtml(edgeById(id));
+  m.classList.add('show');
+  // keep the menu on screen
+  const r = m.getBoundingClientRect();
+  const x = Math.min(clientX, window.innerWidth - r.width - 8);
+  const y = Math.min(clientY, window.innerHeight - r.height - 8);
+  m.style.left = Math.max(8, x) + 'px';
+  m.style.top = Math.max(8, y) + 'px';
+  if (kind === 'node') bindNodeMenu(nodeById(id));
+  else bindEdgeMenu(edgeById(id));
 }
-function nodePanelHtml(n) {
-  const outs = state.edges.filter(e => e.from === n.id);
-  const total = outWeight(n.id);
-  const rows = outs.length
-    ? outs.map(e => {
-        const to = nodeById(e.to);
-        const pct = Math.round(edgeProbability(e) * 100);
-        return `<div class="row" data-edge="${esc(e.id)}"><span>${e.to === n.id ? '↻ 자기 자신' : '→ ' + esc(short(to ? to.label : e.to, 12))}</span><span class="p">${e.weight % 1 ? e.weight.toFixed(1) : e.weight} · ${pct}%</span></div>`;
-      }).join('')
-    : '<p class="muted">나가는 연결이 없습니다. Shift+드래그로 연결하세요.</p>';
+
+function nodeMenuHtml(n) {
+  if (!n) return '';
+  const isStart = state.startMode === 'selected' && state.startNodeId === n.id;
+  const swatches = PALETTE.map(c =>
+    `<button class="sw${n.color === c ? ' on' : ''}" data-color="${c}" style="background:${c}" title="${c}"></button>`
+  ).join('');
   return `
-    <h2>노드</h2>
-    <div class="field"><span>이름</span><input id="pnLabel" type="text" value="${esc(n.label)}"></div>
-    <div class="btnrow">
-      <button id="pnPick">소리 파일 선택</button>
-      <button id="pnPreview" ${n.audio ? '' : 'disabled'}>미리 듣기</button>
-    </div>
-    <div class="sound ${n.audio ? '' : 'none'}">${n.audio ? '♪ ' + esc(n.audio.name) : '소리 없음 — 0.3초 뒤 다음 노드로'}</div>
-    ${n.audio ? '<div class="btnrow"><button id="pnClear">소리 제거</button></div>' : ''}
-    <div class="btnrow"><button id="pnStart">${state.startNodeId === n.id && state.startMode === 'selected' ? '✓ 시작 노드' : '이 노드에서 시작'}</button></div>
-    <h3>나가는 연결 (합계 ${total % 1 ? total.toFixed(1) : total})</h3>
-    ${rows}
-    <h3>삭제</h3>
-    <div class="btnrow"><button id="pnDelete" class="danger">노드 삭제</button></div>
+    <div class="title">${esc(n.label)}${n.audio ? ' · ♪' : ''}</div>
+    <button data-act="rename">이름 바꾸기<span class="key">F2</span></button>
+    ${n.audio ? '<button data-act="sound">소리 바꾸기</button>' : '<button data-act="sound">소리 넣기</button>'}
+    ${n.audio ? '<button data-act="preview">미리 듣기</button>' : ''}
+    ${n.audio ? '<button data-act="clearsound">소리 제거</button>' : ''}
+    <div class="title" style="border:0;margin:4px 0 2px;padding-bottom:2px">색</div>
+    <div class="swatches">${swatches}</div>
+    <button data-act="start">${isStart ? '✓ 시작 노드' : '여기서 시작'}</button>
+    <button data-act="delete" class="danger">노드 삭제<span class="key">Del</span></button>
   `;
 }
 
-function bindNodePanel(n) {
-  const p = els.panel;
-  const labelInput = p.querySelector('#pnLabel');
-  labelInput.oninput = () => { n.label = labelInput.value; scheduleSave(); };
-  labelInput.onchange = () => { rebuildPanel(); };
-  p.querySelector('#pnPick').onclick = () => {
-    els.soundFile.value = '';
-    soundTargetId = n.id;
-    els.soundFile.click();
-  };
-  const prev = p.querySelector('#pnPreview');
-  if (prev) prev.onclick = () => previewSound(n);
-  const clear = p.querySelector('#pnClear');
-  if (clear) clear.onclick = () => { n.audio = null; scheduleSave(); rebuildPanel(); };
-  p.querySelector('#pnStart').onclick = () => {
-    state.startMode = 'selected';
-    state.startNodeId = n.id;
-    els.startMode.value = 'selected';
-    scheduleSave();
-    rebuildPanel();
-    toast('시작 노드: ' + n.label);
-  };
-  p.querySelector('#pnDelete').onclick = () => deleteNode(n.id);
-  p.querySelectorAll('[data-edge]').forEach(row => {
-    row.onclick = () => setSelection({ type: 'edge', id: row.dataset.edge });
+function bindNodeMenu(n) {
+  if (!n) return;
+  const m = els.menu;
+  m.querySelectorAll('[data-act]').forEach(b => {
+    b.onclick = () => {
+      const act = b.dataset.act;
+      closeMenu();
+      if (act === 'rename') startRename(n, { left: parseFloat(m.style.left), top: parseFloat(m.style.top) });
+      else if (act === 'sound') pickSound(n);
+      else if (act === 'preview') previewSound(n);
+      else if (act === 'clearsound') { n.audio = null; scheduleSave(); toast('소리 제거: ' + n.label); }
+      else if (act === 'start') {
+        state.startMode = 'selected';
+        state.startNodeId = n.id;
+        els.startMode.value = 'selected';
+        scheduleSave();
+        toast('시작 노드: ' + n.label);
+      } else if (act === 'delete') deleteNode(n.id);
+    };
+  });
+  m.querySelectorAll('[data-color]').forEach(b => {
+    b.onclick = () => {
+      n.color = b.dataset.color;
+      scheduleSave();
+      openMenu('node', n.id, parseFloat(m.style.left), parseFloat(m.style.top));
+    };
   });
 }
 
-function edgePanelHtml(e) {
+function edgeMenuHtml(e) {
+  if (!e) return '';
   const a = nodeById(e.from), b = nodeById(e.to);
-  const pct = Math.round(edgeProbability(e) * 100);
-  const total = outWeight(e.from);
+  const names = e.from === e.to ? a ? esc(a.label) + ' ↻' : '' : `${esc(a ? a.label : e.from)} → ${esc(b ? b.label : e.to)}`;
   return `
-    <h2>연결</h2>
-    <div class="sound">${esc(a ? a.label : e.from)} → ${e.from === e.to ? '(자기 자신)' : esc(b ? b.label : e.to)}</div>
-    <div class="field"><span>가중치</span><input id="peW" type="number" min="0" step="0.1" value="${e.weight}"></div>
-    <input id="peRange" type="range" min="0" max="10" step="0.1" value="${clamp(e.weight, 0, 10)}">
-    <div class="stat">이 노드에서 ${pct}% · 나가는 가중치 합 ${total % 1 ? total.toFixed(1) : total}</div>
-    <h3>삭제</h3>
-    <div class="btnrow"><button id="peDelete" class="danger">연결 삭제</button></div>
+    <div class="title">${names} · ${Math.round(edgeProbability(e) * 100)}%</div>
+    <div class="num">가중치 <input type="number" min="0" step="0.1" value="${e.weight}"> 합 ${(outWeight(e.from) % 1 ? outWeight(e.from).toFixed(1) : outWeight(e.from))}</div>
+    <button data-act="delete" class="danger">연결 삭제<span class="key">Del</span></button>
   `;
 }
 
-function bindEdgePanel(e) {
-  const p = els.panel;
-  const num = p.querySelector('#peW');
-  const range = p.querySelector('#peRange');
-  const apply = (v) => {
-    e.weight = Math.max(0, round1(Number(v) || 0));
-    num.value = String(e.weight);
-    range.value = String(clamp(e.weight, 0, 10));
-    const stat = p.querySelector('.stat');
-    if (stat) {
-      const total = outWeight(e.from);
-      stat.textContent = `이 노드에서 ${Math.round(edgeProbability(e) * 100)}% · 나가는 가중치 합 ${total % 1 ? total.toFixed(1) : total}`;
-    }
+function bindEdgeMenu(e) {
+  if (!e) return;
+  const m = els.menu;
+  const num = m.querySelector('input[type=number]');
+  num.oninput = () => {
+    e.weight = Math.max(0, round1(Number(num.value) || 0));
     scheduleSave();
   };
-  num.oninput = () => apply(num.value);
-  range.oninput = () => apply(range.value);
-  p.querySelector('#peDelete').onclick = () => deleteEdge(e.id);
+  num.onchange = () => { num.value = String(e.weight); };
+  m.querySelector('[data-act=delete]').onclick = () => { closeMenu(); deleteEdge(e.id); };
+}
+
+function renameNode(n, value) {
+  const label = String(value || '').trim();
+  if (!label) return false;
+  n.label = label.slice(0, 40);
+  scheduleSave();
+  return true;
+}
+
+function startRename(n, anchor) {
+  if (!n) return;
+  const m = els.menu;
+  const rect = anchor && anchor.left != null
+    ? { left: anchor.left, top: anchor.top }
+    : { left: parseFloat(m.style.left) || 40, top: parseFloat(m.style.top) || 40 };
+  menuOpen = { kind: 'node', id: n.id };
+  m.innerHTML = `
+    <div class="title">이름 바꾸기</div>
+    <div class="num"><input id="menuRename" type="text" maxlength="40" value="${esc(n.label)}"></div>
+  `;
+  const input = m.querySelector('#menuRename');
+  input.style.width = '200px';
+  m.classList.add('show');
+  m.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - m.offsetHeight - 8)) + 'px';
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = (save) => {
+    if (done) return;
+    done = true;
+    if (save && renameNode(n, input.value)) toast('이름 변경: ' + n.label);
+    closeMenu();
+  };
+  input.onkeydown = (ev2) => {
+    ev2.stopPropagation();
+    if (ev2.key === 'Enter') { ev2.preventDefault(); commit(true); }
+    else if (ev2.key === 'Escape') { ev2.preventDefault(); commit(false); }
+  };
+  input.onblur = () => commit(true);
+}
+
+function pickSound(n) {
+  if (!n) return;
+  els.soundFile.value = '';
+  soundTargetId = n.id;
+  els.soundFile.click();
 }
 
 // ---------------------------------------------------------------- sound files
@@ -912,7 +961,6 @@ function onSoundFile(file, targetId) {
   reader.onload = () => {
     n.audio = { name: file.name, mime: file.type || '', data: String(reader.result) };
     scheduleSave();
-    rebuildPanel();
     toast('소리 지정: ' + file.name);
   };
   reader.onerror = () => toast('파일을 읽지 못했습니다');
@@ -992,6 +1040,7 @@ function seedDemo() {
 // ---------------------------------------------------------------- events
 function bindUI() {
   els.cv.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;   // right/middle click is for the context menu
     const p = toGraph(ev);
     const n = hitNode(p);
     if (ev.shiftKey && n) {
@@ -1040,13 +1089,68 @@ function bindUI() {
 
   els.cv.addEventListener('pointercancel', () => { drag = null; linking = null; });
 
+  // double click: node = pick its sound, empty canvas = new node
   els.cv.addEventListener('dblclick', (ev) => {
     const p = toGraph(ev);
-    if (hitNode(p) || hitEdge(p)) return;
-    const n = addNodeAt(p.x, p.y);
-    setSelection({ type: 'node', id: n.id });
+    const n = hitNode(p);
+    if (n) {
+      setSelection({ type: 'node', id: n.id });
+      pickSound(n);
+      return;
+    }
+    if (hitEdge(p)) return;
+    const fresh = addNodeAt(p.x, p.y);
+    setSelection({ type: 'node', id: fresh.id });
     scheduleSave();
   });
+
+  // right click: node / edge menu
+  els.cv.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    const p = toGraph(ev);
+    const n = hitNode(p);
+    if (n) {
+      setSelection({ type: 'node', id: n.id });
+      openMenu('node', n.id, ev.clientX, ev.clientY);
+      return;
+    }
+    const e = hitEdge(p);
+    if (e) {
+      setSelection({ type: 'edge', id: e.id });
+      openMenu('edge', e.id, ev.clientX, ev.clientY);
+      return;
+    }
+    closeMenu();
+    setSelection(null);
+  });
+
+  // wheel over an edge nudges its weight
+  els.cv.addEventListener('wheel', (ev) => {
+    const p = toGraph(ev);
+    const e = hitEdge(p) || (menuOpen && menuOpen.kind === 'edge' ? edgeById(menuOpen.id) : null);
+    if (!e) return;
+    ev.preventDefault();
+    const step = ev.shiftKey ? 1 : 0.1;
+    const dir = ev.deltaY > 0 ? -1 : 1;
+    e.weight = clamp(round1(e.weight + dir * step), 0, 99);
+    setSelection({ type: 'edge', id: e.id });
+    if (menuOpen && menuOpen.kind === 'edge' && menuOpen.id === e.id) {
+      const num = els.menu.querySelector('input[type=number]');
+      if (num) num.value = String(e.weight);
+    }
+    toast(`${e.weight % 1 ? e.weight.toFixed(1) : e.weight} · ${Math.round(edgeProbability(e) * 100)}%`);
+    scheduleSave();
+  }, { passive: false });
+
+  // dismiss the menu
+  document.addEventListener('pointerdown', (ev) => {
+    if (!menuOpen) return;
+    if (els.menu.contains(ev.target)) return;
+    closeMenu();
+  }, true);
+  window.addEventListener('blur', closeMenu);
+  window.addEventListener('resize', closeMenu);
+  document.addEventListener('scroll', closeMenu, true);
 
   window.addEventListener('keydown', (ev) => {
     const tag = document.activeElement && document.activeElement.tagName;
@@ -1054,8 +1158,19 @@ function bindUI() {
     if (ev.key === 'Delete' || ev.key === 'Backspace') {
       if (state.selection) { ev.preventDefault(); deleteSelection(); }
     } else if (ev.key === 'Escape') {
+      if (menuOpen) { closeMenu(); return; }
       linking = null;
       setSelection(null);
+    } else if (ev.key === 'F2') {
+      const s2 = state.selection;
+      if (s2 && s2.type === 'node') {
+        const n = nodeById(s2.id);
+        if (n) {
+          ev.preventDefault();
+          const rect = els.cv.getBoundingClientRect();
+          startRename(n, { left: rect.left + n.x, top: rect.top + n.y });
+        }
+      }
     } else if (ev.key === ' ') {
       ev.preventDefault();
       if (state.running) stopWalkers(); else startWalkers();
@@ -1102,8 +1217,8 @@ function bindUI() {
     state.edges = [];
     state.selection = null;
     state.startNodeId = null;
+    closeMenu();
     scheduleSave();
-    rebuildPanel();
     toast('새 그래프를 시작합니다');
   });
 
@@ -1222,6 +1337,14 @@ function runSelfTests() {
     return r.startMode === 'selected' && r.startNodeId === 'a' &&
       deserializeGraph(JSON.stringify({ nodes: [], edges: [] })).startMode === 'random';
   });
+  check('node color survives round trip, bad color dropped', () => {
+    const g = { walkerCount: 2, nodes: [
+      { id: 'a', x: 0, y: 0, label: 'A', color: '#7aa7ff', audio: null },
+      { id: 'b', x: 0, y: 0, label: 'B', color: '#123456', audio: null },
+    ], edges: [] };
+    const r = deserializeGraph(serializeGraph(g));
+    return r.nodes[0].color === '#7aa7ff' && r.nodes[1].color === null;
+  });
   check('duplicate node ids are rejected', () => {
     let threw = false;
     try {
@@ -1253,14 +1376,13 @@ function runSelfTests() {
 
 // ---------------------------------------------------------------- init
 (async function init() {
-  for (const id of ['cv', 'panel', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'btnClear', 'soundFile', 'importFile']) {
+  for (const id of ['cv', 'menu', 'toast', 'walkerCount', 'startMode', 'btnRun', 'btnAddNode', 'btnExport', 'btnImport', 'btnClear', 'soundFile', 'importFile']) {
     els[id] = document.getElementById(id);
   }
   if (SELF_TEST) { runSelfTests(); return; }
 
   resize();
   bindUI();
-  rebuildPanel();
   requestAnimationFrame(frame);
 
   let restored = false;
@@ -1278,7 +1400,7 @@ function runSelfTests() {
   }
   els.walkerCount.value = String(state.walkerCount);
   els.startMode.value = state.startMode;
-  rebuildPanel();
+  closeMenu();
   syncControls();
 
   window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb };
