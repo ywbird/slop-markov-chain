@@ -30,22 +30,27 @@
 
 - Single file: `index.html` (vanilla HTML/JS/CSS, no build, no deps). Self test: open with `?selftest=1`.
 - Save format: one JSON file (`markov-sound-graph-*.json`). Audio is embedded as base64 data URLs inside the JSON — zip-with-renamed-extension was rejected as it needs a zip writer.
-- Editing: double-click empty canvas = node, Shift+drag node→node = edge (drop on itself = self-loop), drag = move, click edge = weight panel, Del = delete, audio file can be dropped straight onto a node.
+- Editing: double-click empty canvas = node, Shift+drag node→node = edge (drop on itself = self-loop), drag = move, right-click node/edge = menu, Del = delete, audio file can be dropped straight onto a node.
 - Walkers: reach a node → play its clip → only then draw the next edge by weight. Independent epochs so stop/edit never leaves a walker mid-flight.
 - Autosave: IndexedDB (graph + audio). Export/import is the portable path.
+- Editing UI: no side panel. Node/edge context menus, double-click on a node for its sound, wheel on an edge for weight, inline rename. Node color comes from an 8-color palette and is stored per node (`color`).
 
 ## Feedback
 
-- [ ] 조작 개편
-    - 오른쪽 패널 삭제
-        - [ ] 노드를 더블클릭하면 소리 선택 윈도우 오픈.
-        - [ ] 노드를 우클릭하면 메뉴
-            - [ ] 이름 바꾸기
-            - [ ] 색 지정
-            - [ ] 소리 제거
-        - [ ] 간선을 우클릭 하면 메뉴
-            - [ ] 삭제
-        - [ ] 간선 위에서 커서를 스크롤하면 가중치 조절
+- [x] 조작 개편
+    - [x] 오른쪽 패널 삭제 (편집 UI 전부 캔버스 위로 이동)
+        - [x] 노드를 더블클릭하면 소리 선택 윈도우 오픈.
+            - 빈 캔버스 더블클릭은 기존대로 노드 추가 (확인함)
+        - [x] 노드를 우클릭하면 메뉴
+            - [x] 이름 바꾸기 — 메뉴 안 인라인 입력, Enter 확정 / Esc 취소, F2 단축키
+            - [x] 색 지정 — 프리셋 팔레트 8색 (확인함), 그래프 파일에 저장됨
+            - [x] 소리 제거 — 소리 있으면 "소리 바꾸기 / 미리 듣기 / 소리 제거" 노출
+            - [x] 여기서 시작 — 패널이 사라져 갈 곳이 없어 메뉴에 추가 (확인함)
+        - [x] 간선을 우클릭 하면 메뉴
+            - [x] 삭제
+            - [x] 가중치 입력 (메뉴 안 숫자 입력 + 나가는 합계 표시)
+        - [x] 간선 위에서 커서를 스크롤하면 가중치 조절
+            - 휠 = ±0.1, Shift+휠 = ±1, 범위 0..99 (확인함)
 
 ### 미뤄둔 피드백.
 
