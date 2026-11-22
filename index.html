@@ -4,29 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Markov Sound Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap">
 <style>
   :root{
-    --bg:#0e1116; --panel:#111721; --line:#222b36; --line2:#2c3746;
-    --text:#d8e0ea; --muted:#7c8a9c; --accent:#66d9c4; --danger:#ff7b72;
+    --bg:#0e1116; --panel:#141c26; --line:#2b3644; --line2:#3a4756;
+    --text:#e6edf6; --muted:#9aabc0; --accent:#a0e7e5; --danger:#ff9aa2;
+    --radius:14px; --border:2px;
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
   body{
     background:var(--bg);color:var(--text);
-    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    font:16px/1.5 'Jua',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     display:flex;flex-direction:column;overflow:hidden;
   }
   button{
-    font:inherit;font-size:13px;color:var(--text);background:#1a222c;border:1px solid var(--line2);
-    border-radius:6px;padding:5px 10px;cursor:pointer;
+    font:inherit;font-size:15px;color:var(--text);background:#1c2532;border:var(--border) solid var(--line2);
+    border-radius:12px;padding:6px 12px;cursor:pointer;
   }
-  button:hover{background:#212b37;border-color:#3a4859}
-  button.danger{color:var(--danger);border-color:#3a2a2a;background:#1d1616}
-  button.danger:hover{background:#2a1c1c}
-  button.on{background:rgba(102,217,196,.16);border-color:#3d7d70;color:#9ff0e1}
+  button:hover{background:#25313f;border-color:#4d5d70}
+  button.danger{color:var(--danger);border-color:#5a3038;background:#221719}
+  button.danger:hover{background:#2e1e21}
+  button.on{background:rgba(160,231,229,.18);border-color:#4f9a98;color:#c9f6f4}
   input,select{
-    font:inherit;font-size:13px;color:var(--text);background:#0d1218;border:1px solid var(--line2);
-    border-radius:6px;padding:4px 7px;
+    font:inherit;font-size:15px;color:var(--text);background:#0d1218;border:var(--border) solid var(--line2);
+    border-radius:10px;padding:4px 9px;
   }
   input:focus,select:focus{outline:none;border-color:var(--accent)}
   input[type=number]{width:64px}
@@ -44,54 +48,54 @@
   main{flex:1;position:relative;min-height:0}
   canvas{display:block;width:100%;height:100%;touch-action:none;cursor:default}
   #menu{
-    position:fixed;z-index:50;min-width:168px;padding:6px;
-    background:#141b24;border:1px solid var(--line2);border-radius:10px;
-    box-shadow:0 12px 32px rgba(0,0,0,.55);display:none;
+    position:fixed;z-index:50;min-width:196px;padding:8px;
+    background:var(--panel);border:var(--border) solid var(--line2);border-radius:18px;
+    box-shadow:0 14px 36px rgba(0,0,0,.6);display:none;
     max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;
   }
   #menu.show{display:block}
   #menu .title{
-    padding:4px 8px 7px;margin-bottom:4px;border-bottom:1px solid var(--line);
-    color:var(--muted);font-size:11px;letter-spacing:.04em;
+    padding:4px 10px 8px;margin-bottom:5px;border-bottom:var(--border) solid var(--line);
+    color:var(--muted);font-size:13px;letter-spacing:.02em;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;
   }
   #menu button{
     display:flex;width:100%;align-items:center;gap:8px;text-align:left;
-    background:none;border:1px solid transparent;border-radius:6px;padding:6px 8px;font-size:13px;
+    background:none;border:var(--border) solid transparent;border-radius:11px;padding:6px 10px;font-size:15px;
   }
-  #menu button:hover{background:#1e2833;border-color:var(--line2)}
-  #menu button.danger:hover{background:#2a1a1a;border-color:#4a2a2a}
-  #menu .key{margin-left:auto;color:var(--muted);font-size:11px}
+  #menu button:hover{background:#222d3b;border-color:var(--line2)}
+  #menu button.danger:hover{background:#2e1e21;border-color:#5a3038}
+  #menu .key{margin-left:auto;color:var(--muted);font-size:12px}
   #menu .swatches{display:flex;gap:6px;padding:2px 8px 8px;flex-wrap:wrap}
   #menu .sw{
-    width:20px;height:20px;border-radius:50%;cursor:pointer;padding:0;
-    border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+    width:24px;height:24px;border-radius:50%;cursor:pointer;padding:0;
+    border:var(--border) solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);
   }
   #menu .sw:hover{border-color:#e8f1fb}
-  #menu .sw.on{border-color:#e8f1fb;box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 0 0 2px rgba(102,217,196,.35)}
-  #menu .num{display:flex;align-items:center;gap:8px;padding:2px 8px 8px;font-size:12px;color:var(--muted)}
-  #menu .num input{width:70px}
-  #menu .slider{display:block;padding:2px 8px 8px}
-  #menu .slider .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:3px}
-  #menu .slider .lab b{color:#c8d6e5;font-weight:600;font-variant-numeric:tabular-nums}
+  #menu .sw.on{border-color:#e8f1fb;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),0 0 0 2px rgba(160,231,229,.45)}
+  #menu .num{display:flex;align-items:center;gap:8px;padding:2px 10px 8px;font-size:13px;color:var(--muted)}
+  #menu .num input{width:74px}
+  #menu .slider{display:block;padding:2px 10px 9px}
+  #menu .slider .lab{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px}
+  #menu .slider .lab b{color:#dbe7f4;font-weight:400;font-variant-numeric:tabular-nums}
   #menu .seg{display:flex;gap:6px;padding:2px 8px 8px}
-  #menu .seg button{justify-content:center;border:1px solid var(--line2);background:#0f151d;font-size:12px;padding:5px 8px}
-  #menu .seg button.on{background:rgba(102,217,196,.16);border-color:#3d7d70;color:#9ff0e1}
+  #menu .seg button{justify-content:center;border:var(--border) solid var(--line2);background:#101720;font-size:13px;padding:5px 9px}
+  #menu .seg button.on{background:rgba(160,231,229,.18);border-color:#4f9a98;color:#c9f6f4}
   #menu .rowline{display:flex;align-items:center;gap:6px;padding:2px 8px 8px}
-  #menu .rowline input[type=number]{width:52px;text-align:center}
-  #menu .ghost{width:26px;padding:2px 0;text-align:center}
+  #menu .rowline input[type=number]{width:56px;text-align:center}
+  #menu .ghost{width:30px;padding:2px 0;text-align:center}
   #hint{
-    position:fixed;left:86px;bottom:22px;z-index:10;pointer-events:none;
-    color:var(--muted);font-size:12px;line-height:1.7;
-    padding:6px 10px;border-radius:8px;background:rgba(14,17,22,.72);
+    position:fixed;left:92px;bottom:22px;z-index:10;pointer-events:none;
+    color:var(--muted);font-size:14px;line-height:1.7;
+    padding:7px 12px;border-radius:14px;background:rgba(14,17,22,.78);
     transition:opacity .5s;
   }
   #hint.fade{opacity:0}
-  #hint b{color:#a9b8c9;font-weight:600}
+  #hint b{color:#bfd0e2;font-weight:400}
   #toast{
     position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);
-    background:#1b2430;border:1px solid var(--line2);color:var(--text);
-    padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;
+    background:var(--panel);border:var(--border) solid var(--line2);color:var(--text);
+    padding:8px 16px;border-radius:16px;font-size:15px;opacity:0;pointer-events:none;
     transition:opacity .18s,transform .18s;max-width:70vw;
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -127,11 +131,11 @@ const uid = (p) => p + '_' + Math.random().toString(36).slice(2, 9);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const round1 = (v) => Math.round(v * 10) / 10;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const R = 27;                      // node radius (css px)
+const R = 30;                      // node radius (css px)
 const REPEL_MAX = 10;              // repel slider top end (was 3: too weak)
 const DELAY_MAX = 2;               // seconds of silence between sounds (0 = current behaviour)
 const numOrDefault = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
-const COLORS = ['#ffd166','#7aa7ff','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#ff9f6b','#8b9dff','#f2a0ff'];
+const COLORS = ['#ffe066','#8bb9ff','#ff9ec4','#d9b8ff','#b6e86a','#7fdcf5','#ffb98a','#a8b8ff','#ffb3f2'];
 const SAVE_VERSION = 1;
 const SELF_TEST = /(?:^|[?&])selftest=1(?:&|$)/.test(location.search);
 
@@ -599,7 +603,8 @@ async function playNodeSound(w, node) {
 
 function animateWalker(w, from, to) {
   return new Promise(res => {
-    w.anim = { from, to, t0: performance.now(), dur: 180 };
+    const edge = state.edges.find(e => e.from === from.id && e.to === to.id);
+    w.anim = { from, to, t0: performance.now(), dur: 180, geom: edge ? edgeGeom(edge) : null };
     setTimeout(() => { w.anim = null; res(); }, w.anim.dur + 10);
   });
 }
@@ -842,21 +847,115 @@ const physics = {
 };
 
 // ---------------------------------------------------------------- geometry
+// Edges are quadratic curves, not straight lines. Every edge bows to its own
+// left, so a pair a->b / b->a separates by itself without any extra offset.
+// A self-loop is a teardrop anchored on the side of the node that has the
+// fewest other edges, instead of always sitting on top of the node.
+const LOOP_SPREAD = 0.46;    // radians between the two feet of a self-loop
+const LOOP_GAP = 46;         // how far the teardrop tip reaches past the rim
+const ARROW_GAP = 10;        // distance the arrow tip stops short of the node
+
+function angDiff(a, b) {
+  let d = Math.abs(a - b) % (Math.PI * 2);
+  return d > Math.PI ? Math.PI * 2 - d : d;
+}
+
+// direction (radians) around node n with the most free space
+function freeAngle(n, e) {
+  const used = [];
+  for (const o of state.edges) {
+    if (o.id === e.id) continue;
+    const other = o.from === n.id ? nodeById(o.to) : (o.to === n.id ? nodeById(o.from) : null);
+    if (other && other.id !== n.id) used.push(Math.atan2(other.y - n.y, other.x - n.x));
+  }
+  if (!used.length) return -Math.PI / 2;   // nothing else: top, the usual spot
+  let best = -Math.PI / 2, bestGap = -1;
+  for (let i = 0; i < 48; i++) {
+    const ang = -Math.PI + (i / 48) * Math.PI * 2;
+    let gap = Math.PI;
+    for (const u of used) gap = Math.min(gap, angDiff(ang, u));
+    if (gap > bestGap) { bestGap = gap; best = ang; }
+  }
+  return best;
+}
+
 function edgeGeom(e) {
   const a = nodeById(e.from), b = nodeById(e.to);
   if (!a || !b) return null;
+
   if (a.id === b.id) {
-    const r = 22, cx = a.x, cy = a.y - R - r - 7;
-    return { loop: true, cx, cy, r, start: 0.62 * Math.PI, end: 2.38 * Math.PI, lx: cx, ly: cy - r - 13 };
+    const dir = freeAngle(a, e);
+    const p0 = { x: a.x + Math.cos(dir - LOOP_SPREAD) * R, y: a.y + Math.sin(dir - LOOP_SPREAD) * R };
+    const p1 = { x: a.x + Math.cos(dir + LOOP_SPREAD) * R, y: a.y + Math.sin(dir + LOOP_SPREAD) * R };
+    const tip = { x: a.x + Math.cos(dir) * (R + LOOP_GAP), y: a.y + Math.sin(dir) * (R + LOOP_GAP) };
+    const c1 = { x: a.x + Math.cos(dir - LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72),
+                 y: a.y + Math.sin(dir - LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72) };
+    const c2 = { x: a.x + Math.cos(dir + LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72),
+                 y: a.y + Math.sin(dir + LOOP_SPREAD * 1.9) * (R + LOOP_GAP * 0.72) };
+    // the walk ends at p1 (back on the rim), so that is where the arrow goes
+    return {
+      loop: true, p0, c1, tip, c2, p1,
+      ax: p1.x, ay: p1.y, angle: Math.atan2(p1.y - c2.y, p1.x - c2.x),
+      // the label clears the tip so it never covers the point of the teardrop
+      lx: a.x + Math.cos(dir) * (R + LOOP_GAP + 30),
+      ly: a.y + Math.sin(dir) * (R + LOOP_GAP + 30),
+    };
   }
-  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
-  const ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
-  const rev = state.edges.some(o => o.from === e.to && o.to === e.from && o.id !== e.id);
-  const off = rev ? 9 : 0;
-  const sx = a.x + ux * R + nx * off, sy = a.y + uy * R + ny * off;
-  const ex = b.x - ux * (R + 9) + nx * off, ey = b.y - uy * (R + 9) + ny * off;
-  const mx = (sx + ex) / 2 + nx * 13, my = (sy + ey) / 2 + ny * 13;
-  return { loop: false, sx, sy, ex, ey, angle: Math.atan2(ey - sy, ex - sx), lx: mx, ly: my };
+
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;             // left normal of a->b
+  const bow = clamp(len * 0.14, 12, 52);
+  const mx = (a.x + b.x) / 2 + nx * bow * 2;
+  const my = (a.y + b.y) / 2 + ny * bow * 2;
+  const da = Math.hypot(mx - a.x, my - a.y) || 1;
+  const db = Math.hypot(mx - b.x, my - b.y) || 1;
+  const sx = a.x + (mx - a.x) / da * R, sy = a.y + (my - a.y) / da * R;
+  const ex = b.x + (mx - b.x) / db * (R + ARROW_GAP), ey = b.y + (my - b.y) / db * (R + ARROW_GAP);
+  // apex of the quadratic, and the label just outside it
+  const apexX = (sx + 2 * mx + ex) / 4, apexY = (sy + 2 * my + ey) / 4;
+  const ox = apexX - (a.x + b.x) / 2, oy = apexY - (a.y + b.y) / 2;
+  const ol = Math.hypot(ox, oy) || 1;
+  return {
+    loop: false, sx, sy, cx: mx, cy: my, ex, ey,
+    angle: Math.atan2(ey - my, ex - mx),
+    lx: apexX + ox / ol * 15, ly: apexY + oy / ol * 15,
+  };
+}
+
+// flatten an edge into points, for hit testing
+function edgePoints(g, steps = 22) {
+  const pts = [];
+  if (g.loop) {
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      // first quadratic p0 -> c1 -> tip
+      const u = 1 - t;
+      pts.push({ x: u * u * g.p0.x + 2 * u * t * g.c1.x + t * t * g.tip.x,
+                 y: u * u * g.p0.y + 2 * u * t * g.c1.y + t * t * g.tip.y });
+    }
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps, u = 1 - t;
+      pts.push({ x: u * u * g.tip.x + 2 * u * t * g.c2.x + t * t * g.p1.x,
+                 y: u * u * g.tip.y + 2 * u * t * g.c2.y + t * t * g.p1.y });
+    }
+    return pts;
+  }
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, u = 1 - t;
+    pts.push({ x: u * u * g.sx + 2 * u * t * g.cx + t * t * g.ex,
+               y: u * u * g.sy + 2 * u * t * g.cy + t * t * g.ey });
+  }
+  return pts;
+}
+
+function distToPolyline(px, py, pts) {
+  let best = Infinity;
+  for (let i = 1; i < pts.length; i++) {
+    const d = distToSegment(px, py, pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+    if (d < best) best = d;
+  }
+  return best;
 }
 
 function distToSegment(px, py, x1, y1, x2, y2) {
@@ -877,17 +976,15 @@ function hitNode(p) {
 }
 
 function hitEdge(p) {
-  let best = null, bestD = 10;
+  let best = null, bestD = 13;
   for (const e of state.edges) {
     const g = edgeGeom(e);
     if (!g) continue;
-    if (g.loop) {
-      const d = Math.abs(Math.hypot(p.x - g.cx, p.y - g.cy) - g.r);
-      if (d < bestD) { bestD = d; best = e; }
-    } else {
-      const d = distToSegment(p.x, p.y, g.sx, g.sy, g.ex, g.ey);
-      if (d < bestD) { bestD = d; best = e; }
-    }
+    // the curve, plus its percentage chip so the label is hoverable too
+    const dCurve = distToPolyline(p.x, p.y, edgePoints(g));
+    const dChip = Math.max(0, Math.hypot(p.x - g.lx, p.y - g.ly) - 11);
+    const d = Math.min(dCurve, dChip);
+    if (d < bestD) { bestD = d; best = e; }
   }
   return best;
 }
@@ -900,6 +997,19 @@ function resize() {
   ch = Math.max(1, rect.height);
   els.cv.width = Math.round(cw * dpr);
   els.cv.height = Math.round(ch * dpr);
+}
+
+// ctx.roundRect with a square fallback for older engines
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') { ctx.roundRect(x, y, w, h, r); return; }
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
 }
 
 // '#rrggbb' + alpha -> rgba()
@@ -915,7 +1025,7 @@ function drawFitText(ctx, text, x, y, maxW, maxSize) {
   text = String(text);
   let size = maxSize;
   do {
-    ctx.font = size + 'px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+    ctx.font = size + "px 'Jua', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     if (ctx.measureText(text).width <= maxW) break;
     if (size > 9) { size--; continue; }
     if (text.length > 2) { text = text.slice(0, -2) + '…'; continue; }
@@ -944,42 +1054,41 @@ function draw(now) {
     const g = edgeGeom(e);
     if (!g) continue;
     const isSel = sel && sel.type === 'edge' && sel.id === e.id;
-    ctx.strokeStyle = isSel ? '#66d9c4' : '#31404f';
+    ctx.strokeStyle = isSel ? EDGE_SEL : EDGE_COLOR;
     ctx.fillStyle = ctx.strokeStyle;
-    ctx.lineWidth = isSel ? 2.4 : 1.6;
+    ctx.lineWidth = isSel ? EDGE_W_SEL : EDGE_W;
+    ctx.lineCap = 'round';
 
     ctx.beginPath();
     if (g.loop) {
-      ctx.arc(g.cx, g.cy, g.r, g.start, g.end);
+      ctx.moveTo(g.p0.x, g.p0.y);
+      ctx.quadraticCurveTo(g.c1.x, g.c1.y, g.tip.x, g.tip.y);
+      ctx.quadraticCurveTo(g.c2.x, g.c2.y, g.p1.x, g.p1.y);
     } else {
       ctx.moveTo(g.sx, g.sy);
-      ctx.lineTo(g.ex, g.ey);
+      ctx.quadraticCurveTo(g.cx, g.cy, g.ex, g.ey);
     }
     ctx.stroke();
 
     // arrow head
-    let ax, ay, ang;
-    if (g.loop) {
-      ax = g.cx + Math.cos(g.end) * g.r;
-      ay = g.cy + Math.sin(g.end) * g.r;
-      ang = g.end + Math.PI / 2;
-    } else {
-      ax = g.ex; ay = g.ey; ang = g.angle;
-    }
+    const ax = g.ax !== undefined ? g.ax : g.ex;
+    const ay = g.ay !== undefined ? g.ay : g.ey;
+    const ang = g.angle;
     ctx.beginPath();
     ctx.moveTo(ax, ay);
-    ctx.lineTo(ax - 9 * Math.cos(ang - 0.42), ay - 9 * Math.sin(ang - 0.42));
-    ctx.lineTo(ax - 9 * Math.cos(ang + 0.42), ay - 9 * Math.sin(ang + 0.42));
+    ctx.lineTo(ax - 11 * Math.cos(ang - 0.45), ay - 11 * Math.sin(ang - 0.45));
+    ctx.lineTo(ax - 11 * Math.cos(ang + 0.45), ay - 11 * Math.sin(ang + 0.45));
     ctx.closePath();
     ctx.fill();
 
     // probability label
     const label = Math.round(edgeProbability(e) * 100) + '%';
-    ctx.font = '11px ui-monospace,SFMono-Regular,Menlo,monospace';
+    ctx.font = "13px 'Jua', ui-monospace, SFMono-Regular, Menlo, monospace";
     const tw = ctx.measureText(label).width;
     ctx.fillStyle = '#0e1116';
-    ctx.fillRect(g.lx - tw / 2 - 4, g.ly - 8, tw + 8, 15);
-    ctx.fillStyle = isSel ? '#9ff0e1' : '#7c8a9c';
+    roundRect(ctx, g.lx - tw / 2 - 6, g.ly - 10, tw + 12, 20, 9);
+    ctx.fill();
+    ctx.fillStyle = isSel ? '#c9f6f4' : '#9aabc0';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, g.lx, g.ly);
@@ -989,8 +1098,8 @@ function draw(now) {
   if (linking) {
     const a = nodeById(linking.from);
     if (a) {
-      ctx.strokeStyle = 'rgba(102,217,196,.65)';
-      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = 'rgba(160,231,229,.7)';
+      ctx.lineWidth = 2.4;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
@@ -1022,16 +1131,16 @@ function draw(now) {
     const isSel = sel && sel.type === 'node' && sel.id === n.id;
     ctx.beginPath();
     ctx.arc(n.x, n.y, R, 0, Math.PI * 2);
-    ctx.fillStyle = n.color ? withAlpha(n.color, 0.22) : (n.audio ? '#1b2530' : '#151b23');
+    ctx.fillStyle = n.color ? withAlpha(n.color, 0.2) : (n.audio ? '#1b2530' : '#161e28');
     ctx.fill();
-    ctx.lineWidth = isSel ? 3 : (n.color ? 2 : 1.5);
-    ctx.strokeStyle = isSel ? '#66d9c4' : (n.color || '#2c3746');
+    ctx.lineWidth = isSel ? 4 : (n.color ? 3 : 2.4);
+    ctx.strokeStyle = isSel ? '#a0e7e5' : (n.color || '#3a4756');
     ctx.stroke();
 
     ctx.fillStyle = NODE_INK;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    drawFitText(ctx, n.label, n.x, n.y, R * 2 - 10, 13);
+    drawFitText(ctx, n.label, n.x, n.y, R * 2 - 12, 16);
 
     if (n.audio) {
       ctx.beginPath();
@@ -1052,10 +1161,10 @@ function draw(now) {
     const sn = nodeById(state.startNodeId);
     if (sn) {
       ctx.beginPath();
-      ctx.arc(sn.x, sn.y, R + 5, 0, Math.PI * 2);
-      ctx.setLineDash([3, 4]);
-      ctx.strokeStyle = '#66d9c4';
-      ctx.lineWidth = 1.4;
+      ctx.arc(sn.x, sn.y, R + 7, 0, Math.PI * 2);
+      ctx.setLineDash([4, 5]);
+      ctx.strokeStyle = '#a0e7e5';
+      ctx.lineWidth = 2.2;
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -1082,17 +1191,28 @@ function draw(now) {
     if (!a || !b) continue;
     const p = clamp((now - w.anim.t0) / w.anim.dur, 0, 1);
     const t = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-    drawToken(ctx, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, w);
+    // follow the drawn edge: same quadratic the renderer uses
+    const g = w.anim.geom || edgeGeom({ id: 'anim', from: a.id, to: b.id });
+    if (g && !g.loop) {
+      const u = 1 - t;
+      drawToken(ctx, u * u * g.sx + 2 * u * t * g.cx + t * t * g.ex,
+                      u * u * g.sy + 2 * u * t * g.cy + t * t * g.ey, w);
+    } else {
+      drawToken(ctx, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, w);
+    }
   }
 }
 
 function drawToken(ctx, x, y, w) {
   ctx.beginPath();
-  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
   ctx.fillStyle = w.color;
   ctx.fill();
+  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = '#0b1014';
+  ctx.stroke();
   ctx.fillStyle = '#0b1014';
-  ctx.font = 'bold 10px ui-monospace,Menlo,monospace';
+  ctx.font = "12px 'Jua', ui-monospace, Menlo, monospace";
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(w.i + 1), x, y + 0.5);
@@ -1104,8 +1224,12 @@ function frame(now) {
 }
 
 // ---------------------------------------------------------------- context menu
-const PALETTE = ['#66d9c4','#7aa7ff','#ffb86b','#ff7b9c','#c792ea','#a6e05f','#4dc9e6','#f2d04b'];
-const NODE_INK = '#d8e0ea';
+const PALETTE = ['#a0e7e5','#a8c7fa','#ffd6a5','#ffb3c6','#d5c2f5','#c7f0a5','#a5e3f5','#ffe9a8'];
+const NODE_INK = '#eef4fb';
+const EDGE_COLOR = '#5f7288';
+const EDGE_SEL = '#a0e7e5';
+const EDGE_W = 2.4;           // resting stroke width (thicker = pastel sticker look)
+const EDGE_W_SEL = 3.6;
 
 function setSelection(sel) {
   state.selection = sel;
@@ -1509,20 +1633,30 @@ function clearGraph() {
   toast('새 그래프를 시작합니다');
 }
 
+const edgeByPair = (from, to) =>
+  state.edges.find(e => e.from === from && e.to === to) || null;
+
 function seedDemo() {
   const base = { x: 190, y: 220 };
   const n1 = addNodeAt(base.x, base.y, 'N1');
   const n2 = addNodeAt(base.x + 240, base.y - 70, 'N2');
   const n3 = addNodeAt(base.x + 470, base.y + 30, 'N3');
   const n4 = addNodeAt(base.x + 250, base.y + 200, 'N4');
-  addEdge(n1.id, n2.id).weight = 2;
-  addEdge(n1.id, n3.id).weight = 1;
-  addEdge(n2.id, n3.id).weight = 3;
-  addEdge(n2.id, n1.id).weight = 1;
-  addEdge(n3.id, n4.id).weight = 2;
-  addEdge(n3.id, n2.id).weight = 1;
-  addEdge(n4.id, n1.id).weight = 3;
-  addEdge(n4.id, n4.id).weight = 1;
+  addEdge(n1.id, n2.id);
+  addEdge(n1.id, n3.id);
+  addEdge(n2.id, n3.id);
+  addEdge(n2.id, n1.id);
+  addEdge(n3.id, n4.id);
+  addEdge(n3.id, n2.id);
+  addEdge(n4.id, n1.id);
+  addEdge(n4.id, n4.id);
+  // set weights only after every edge exists: a lone outgoing edge is locked
+  // at 100 and would swallow an earlier nudge
+  const bias = [[n1.id, n2.id, 65], [n2.id, n3.id, 70], [n3.id, n4.id, 60], [n4.id, n1.id, 80]];
+  for (const [from, to, pct] of bias) {
+    const e = edgeByPair(from, to);
+    if (e) setEdgeWeight(e, pct);
+  }
 }
 
 // ---------------------------------------------------------------- events
@@ -1899,6 +2033,83 @@ function runSelfTests() {
     try { deserializeGraph('{"nodes":5}'); } catch (e) { threw = true; }
     return threw;
   });
+  // ---- edge geometry: curves and teardrop self-loops
+  const withNodes = (nodes, edges, fn) => {
+    const savedN = state.nodes, savedE = state.edges;
+    state.nodes = nodes; state.edges = edges;
+    try { return fn(); } finally { state.nodes = savedN; state.edges = savedE; }
+  };
+  const mkNode = (id, x, y) => ({ id, x, y, label: id, color: null, gravity: 1, repel: 1, pinned: false, audio: null });
+
+  check('edges are curves, not straight lines', () =>
+    withNodes([mkNode('a', 0, 0), mkNode('b', 400, 0)],
+      [{ id: 'e', from: 'a', to: 'b', weight: 100 }], () => {
+        const g = edgeGeom(state.edges[0]);
+        // a straight line would have its control point on the chord
+        return g && !g.loop && Math.abs(g.cy) > 20 && Math.abs(g.cx - 200) < 1;
+      }));
+
+  check('opposite edges bow to different sides', () =>
+    withNodes([mkNode('a', 0, 0), mkNode('b', 400, 0)],
+      [{ id: 'e1', from: 'a', to: 'b', weight: 100 }, { id: 'e2', from: 'b', to: 'a', weight: 100 }], () => {
+        const g1 = edgeGeom(state.edges[0]), g2 = edgeGeom(state.edges[1]);
+        return Math.sign(g1.cy) !== Math.sign(g2.cy);
+      }));
+
+  check('curve endpoints sit on the two node rims', () =>
+    withNodes([mkNode('a', 0, 0), mkNode('b', 300, 120)],
+      [{ id: 'e', from: 'a', to: 'b', weight: 100 }], () => {
+        const g = edgeGeom(state.edges[0]);
+        const a = nodeById('a'), b = nodeById('b');
+        const dStart = Math.hypot(g.sx - a.x, g.sy - a.y);
+        const dEnd = Math.hypot(g.ex - b.x, g.ey - b.y);
+        return Math.abs(dStart - R) < 0.001 && Math.abs(dEnd - (R + ARROW_GAP)) < 0.001;
+      }));
+
+  check('self-loop is a teardrop that leaves and returns on the rim', () =>
+    withNodes([mkNode('a', 100, 100)], [{ id: 'e', from: 'a', to: 'a', weight: 100 }], () => {
+      const g = edgeGeom(state.edges[0]);
+      const a = nodeById('a');
+      const onRim = (p) => Math.abs(Math.hypot(p.x - a.x, p.y - a.y) - R) < 0.001;
+      const tipFar = Math.hypot(g.tip.x - a.x, g.tip.y - a.y) > R + LOOP_GAP - 1;
+      return g.loop && onRim(g.p0) && onRim(g.p1) && tipFar;
+    }));
+
+  check('demo seed leaves every node at exactly 100 with a real bias', () =>
+    withNodes([], [], () => {
+      seedDemo();
+      const sums = state.nodes.map(n => Math.round(outEdges(n.id).reduce((a, e) => a + e.weight, 0) * 10) / 10);
+      const biased = state.edges.some(e => e.weight > 50 && edgeProbability(e) > 0.5);
+      return state.nodes.length === 4 && sums.every(v => v === 100) && biased;
+    }));
+
+  check('self-loop turns away from the node\'s other edges', () => {
+    // one neighbour to the right: the loop must not be drawn on the right
+    return withNodes([mkNode('a', 0, 0), mkNode('b', 300, 0)], [
+      { id: 'e1', from: 'a', to: 'b', weight: 50 },
+      { id: 'e2', from: 'a', to: 'a', weight: 50 },
+    ], () => {
+      const g = edgeGeom(state.edges[1]);
+      return g.loop && g.tip.x < 0;
+    });
+  });
+
+  check('hit testing follows the curve, not the chord', () =>
+    withNodes([mkNode('a', 0, 0), mkNode('b', 400, 0)],
+      [{ id: 'e', from: 'a', to: 'b', weight: 100 }], () => {
+        const g = edgeGeom(state.edges[0]);
+        const onCurve = hitEdge({ x: (g.sx + 2 * g.cx + g.ex) / 4, y: (g.sy + 2 * g.cy + g.ey) / 4 });
+        const onChord = hitEdge({ x: 200, y: 0 });
+        return onCurve && onCurve.id === 'e' && onChord === null;
+      }));
+
+  check('hit testing finds a self-loop tip', () =>
+    withNodes([mkNode('a', 100, 100)], [{ id: 'e', from: 'a', to: 'a', weight: 100 }], () => {
+      const g = edgeGeom(state.edges[0]);
+      const hit = hitEdge({ x: g.tip.x, y: g.tip.y });
+      return hit && hit.id === 'e';
+    }));
+
   check('delay survives round trip and is clamped to 0..DELAY_MAX', () => {
     const g = { delay: 0.35, walkerCount: 2, nodes: [], edges: [] };
     const ok = deserializeGraph(serializeGraph(g)).delay === 0.35;
@@ -2002,11 +2213,11 @@ function runSelfTests() {
   });
   check('node color survives round trip, bad color dropped', () => {
     const g = { walkerCount: 2, nodes: [
-      { id: 'a', x: 0, y: 0, label: 'A', color: '#7aa7ff', audio: null },
+      { id: 'a', x: 0, y: 0, label: 'A', color: PALETTE[1], audio: null },
       { id: 'b', x: 0, y: 0, label: 'B', color: '#123456', audio: null },
     ], edges: [] };
     const r = deserializeGraph(serializeGraph(g));
-    return r.nodes[0].color === '#7aa7ff' && r.nodes[1].color === null;
+    return r.nodes[0].color === PALETTE[1] && r.nodes[1].color === null;
   });
   check('duplicate node ids are rejected', () => {
     let threw = false;
@@ -2065,7 +2276,7 @@ function runSelfTests() {
   closeMenu();
   syncControls();
 
-  window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb, physics, REPEL_MAX, DELAY_MAX };
+  window.__mksg = { state, serializeGraph, deserializeGraph, nextEdgeFrom, pickNext, edgeProbability, audio, idb, physics, REPEL_MAX, DELAY_MAX, R, edgeGeom, hitEdge, freeAngle };
 })();
 
 window.addEventListener('error', (e) => {

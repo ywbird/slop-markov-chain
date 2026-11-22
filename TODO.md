@@ -35,9 +35,33 @@
 - Autosave: IndexedDB (graph + audio). Export/import is the portable path.
 - Editing UI: no side panel and no top bar. Background / node / edge right-click menus, double-click on a node for its sound, wheel on an edge for probability, inline rename. Node color comes from an 8-color palette and is stored per node (`color`).
 - Weights are percentages (`weight` = % of a node's outgoing traffic); `setEdgeWeight` keeps each node's outgoing sum at exactly 100. Node fields `gravity`, `repel`, `pinned` drive the optional layout simulation (`physics` flag is saved).
-- Physics is a placement tool: it settles, stops, and saves the result. The camera follows the centre of mass only while it runs.
+- Physics is a placement tool: it settles, stops, and saves the result. The camera follows the centre of mass only while it runs, and holds still as soon as any node is pinned (a pan would slide the pinned node on screen).
+- Look: dark navy background with pastel nodes/edges/walkers, 2px borders everywhere, 12–18px corner radii, Jua from Google Fonts with a system fallback. Edges are quadratic curves; self-loops are teardrops turned toward the node's emptiest side.
 
 ## Feedback
+
+- [x] visual
+    - [x] 회귀 간선 형태 변경: 항상 노드의 위쪽에 있으니까 이상함. 다른 간선이 없는 방향으로 + 원형 보다는 물방울 같은 모양의 곡선
+        - 방향: 노드 주변 48방향을 훑어 다른 간선과 가장 먼 방향 (확인함)
+        - 모양: 이차 베지어 2개로 만든 물방울 (p0 → tip → p1, 양 끝은 테두리 위) (확인함)
+        - 화살표는 p1에 붙고, 퍼센트 칩은 꼭짓점 바깥 30px (확인함)
+        - 다른 간선이 하나도 없으면 위쪽 (확인함)
+    - [x] 간선 형태 변경: 둥글게. 모든 간선이 직선인건 이상함.
+        - 모든 간선을 이차 베지어로. 길이에 비례해 휘고(12~52px) 왼쪽으로 휨 (확인함)
+        - 반대 방향 쌍은 서로 반대로 휘어 자동으로 분리 (확인함)
+        - 히트 테스트도 곡선을 따라감 (직선 위에서는 안 잡힘), 퍼센트 칩도 클릭 영역 (확인함)
+        - 워커 이동도 같은 곡선을 따라감 (확인함)
+    - [x] 전체적 look 변경: 파스텔 톤 + 둥글둥글한 ui + 두꺼운 border
+        - 배경은 어두운 남색 유지, 노드·간선·워커만 파스텔 (사용자 선택: b) (확인함)
+        - border 2px (버튼·입력·메뉴), 노드 테두리 2.4~4px, 간선 2.4~3.6px (확인함)
+        - 모서리: 버튼 12px, 메뉴 18px, 토스트 16px, 칩 9px (확인함)
+        - 노드 반지름 27 → 30 (확인함)
+    - [x] 폰트 크기 증가
+        - 본문 14 → 16px, 버튼 13 → 15px, 메뉴 항목 13 → 15px, 힌트 12 → 14px (확인함)
+        - 캔버스: 노드 라벨 최대 13 → 16px, 간선 퍼센트 11 → 13px, 워커 토큰 10 → 12px (확인함)
+    - [x] https://fonts.google.com/specimen/Jua 사용.
+        - Google Fonts `<link>` (인터넷 가정), 실패 시 시스템 폰트로 폴백 (확인함)
+        - 캔버스 글자도 Jua 사용 (확인함)
 
 - [x] 중력 무시 노드가 움직임. 화면 단위로 고정하라는 뜻.
     - 원인: 핀 노드의 world 좌표는 고정이었지만 물리 중 카메라가 움직여 화면에서 밀렸음
@@ -96,12 +120,6 @@
 ### 미뤄둔 피드백.
 
 아직 진행 금지.
-
-- [ ] visual
-    - [ ] 회귀 간선 형태 변경: 항상 노드의 위쪽에 있으니까 이상함. 다른 간선이 없는 방향으로 + 원형 보다는 물방울 같은 모양의 곡선
-    - [ ] 간선 형태 변경: 둥글게. 모든 간선이 직선인건 이상함.
-    - [ ] 전체적 look 변경: 파스텔 톤 + 둥글둥글한 ui + 두꺼운 border
-    - [ ] 폰트 크기 증가
 
 ## Implementation Rules
 
